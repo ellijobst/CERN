@@ -57,7 +57,7 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
         'TPCnSigmaHe3',
         'TPCnSigmaPi',
         'm',
-        'ct',
+        # 'ct',
     ]
 
     #plotting
@@ -156,7 +156,10 @@ if __name__ == "__main__":
 
         bkgH.get_handler_from_large_file(file_name='../Data/DataTable_18LS_pass3.root',tree_name='DataTable', 
                             preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
-        bkgH = bkgH.get_subset(size=170001)
+        # bkgH = dataH.get_subset('m < 2.991-3*0.0017 or m > 2.991+3*0.0017', size=promptH.get_n_cand()*3)
+        # lomots are taken from 
+        # https://www.researchgate.net/publication/334719549_Highlights_of_the_production_of_anti-hyper-nuclei_and_exotica_with_ALICE_at_the_LHC/download
+        # bkgH = bkgH.get_subset(size=170001)
 
         filename=f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}.pdf"  
         
