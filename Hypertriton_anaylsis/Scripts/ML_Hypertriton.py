@@ -149,11 +149,16 @@ if __name__ == "__main__":
         # when two Like Sign particles are measured it has to be background signal
         dataH.get_handler_from_large_file(file_name='../Data/DataTable_18_pass3.root',tree_name='DataTable', 
                             preselection =f'{pt_min} < pt < {pt_max}')
-        promptH.get_handler_from_large_file(file_name='../Data/SignalTable_20g7.root',tree_name='DataTable', 
+        dataH = dataH.get_subset(size=170001*10)
+
+        promptH.get_handler_from_large_file(file_name='../Data/SignalTable_20g7.root',tree_name='SignalTable', 
                             preselection =f'{pt_min} < pt < {pt_max}')
+        promptH = promptH.get_subset(size=5667*10)
+
         bkgH.get_handler_from_large_file(file_name='../Data/DataTable_18LS_pass3.root',tree_name='DataTable', 
                             preselection =f'{pt_min} < pt < {pt_max}')
-
+        bkgH = bkgH.get_subset(size=170001*10)
+        
         filename=f"ML_Hypertriton_output_{pt_min}<pt<{pt_max}.pdf"  
 
         ML_Hypertriton(dataH, bkgH, promptH, filename, pt_min, pt_max)
