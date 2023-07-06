@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import numpy as np
 import pandas as pd
 import xgboost as xgb
@@ -9,15 +10,19 @@ from hipe4ml.analysis_utils import train_test_generator
 from hipe4ml import plot_utils
 from matplotlib.backends.backend_pdf import PdfPages
 
+
+#TODO: add logger
+
 def save_output_as_pdf(filename):
+    '''
+    this functions saves the output plots from the maschine learning to a .pdf file
+    ---
+    filename: str, Path/name of the file
+    '''
     
-    # PdfPages is a wrapper around pdf 
-    # file so there is no clash and
-    # create files with no error.
     p = PdfPages(filename)
       
-    # get_fignums Return list of existing
-    # figure numbers
+    # get number of figures
     fig_nums = plt.get_fignums()  
     figs = [plt.figure(n) for n in fig_nums]
       
@@ -32,11 +37,13 @@ def save_output_as_pdf(filename):
 
 
 def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
-
+    '''
+    this function trains a model on the input training signal and bkg data, and applies it afterwards
+    '''
     # define a test/train dataset
     train_test_data = train_test_generator([promptH, bkgH], [1,0], test_size=0.5, random_state=42)
 
-    #select variables
+    #select variables for plots
     vars_to_draw = [
         'V0CosPA',
         'pt', 
@@ -53,16 +60,16 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
         'ct',
     ]
 
+    #plotting
     leg_labels = ['background', 'signal']
 
-    #plotting
     plot_utils.plot_distr([bkgH, promptH], vars_to_draw, bins=100, labels=leg_labels, \
                         log=True, density=True, figsize=(12, 7), alpha=0.3, grid=False)
     
     plt.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.96, hspace=0.55, wspace=0.55)
     plot_utils.plot_corr([bkgH, promptH], vars_to_draw, leg_labels)
 
-    # select variables for training
+    # select variables for training, remove those that are very different for bkg and signal events
     features_for_train = vars_to_draw.copy()
     features_for_train.remove('m')
     features_for_train.remove('pt')
@@ -91,6 +98,8 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
 
     #saving model
     model_hdl.dump_model_handler(f'Models/Hypertriton_model_{pt_min}<pt<{pt_max}')
+    print('Model saved as:', f'Models/Hypertriton_model_{pt_min}<pt<{pt_max}')
+
     
     y_pred_train = model_hdl.predict(train_test_data[0], False)
     y_pred_test = model_hdl.predict(train_test_data[2], False)
@@ -122,7 +131,7 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
 
 
 if __name__ == "__main__":
-
+    #specify the pt ranges we want to take a look at
     pt = [2,3,4,5,6,9]
 
     for i in range(len(pt)-1):
@@ -132,27 +141,20 @@ if __name__ == "__main__":
 
         # get files
         # TODO: get this working tomorrow!
-        dataH = TreeHandler()#'DataTable_18_pass3.root', 'DataTable', entry_stop=17001)
-        dataH.get_handler_from_large_file(file_name='DataTable_18_pass3.root',tree_name='DataTable', 
-                            preselection =f'{pt_min} < pt < {pt_max}')
-        print(dataH.get_data_frame()['V0radius'].head)
-        # TreeHandler.get_handler_from_large_file(file_name='DataTable_18_pass3.root',tree_name='DataTable', 
-        #                     preselection =f'{pt_min} < pt < {pt_max}')
-        # dataH = dataH.get_slice(n_bin=17001*10)
-        break
-        promptH = TreeHandler.get_handler_from_large_file('SignalTable_20g7.root','SignalTable', 
-                              entry_stop=5667*10,
-                              preselection =f'{pt_min} < pt < {pt_max}')
-        #background, since Hyptertriton decays into two differently charged particles,
+        dataH = TreeHandler()
+        promptH = TreeHandler()
+        bkgH = TreeHandler()
+
+        # Since Hyptertriton decays into two differently charged particles,
         # when two Like Sign particles are measured it has to be background signal
-        bkgH = TreeHandler.get_handler_from_large_file('DataTable_18LS_pass3.root','DataTable', 
-                           entry_stop=17001*10,
-                           preselection =f'{pt_min} < pt < {pt_max}')
+        dataH.get_handler_from_large_file(file_name='../Data/DataTable_18_pass3.root',tree_name='DataTable', 
+                            preselection =f'{pt_min} < pt < {pt_max}')
+        promptH.get_handler_from_large_file(file_name='../Data/SignalTable_20g7.root',tree_name='DataTable', 
+                            preselection =f'{pt_min} < pt < {pt_max}')
+        bkgH.get_handler_from_large_file(file_name='../Data/DataTable_18LS_pass3.root',tree_name='DataTable', 
+                            preselection =f'{pt_min} < pt < {pt_max}')
 
-        # promptH.get_data_frame().head()
-        # df = bkgH.get_data_frame()
-
-        filename=f"ML_Hypertriton_output_pt{pt_min}-{pt_max}.pdf"  
+        filename=f"ML_Hypertriton_output_{pt_min}<pt<{pt_max}.pdf"  
 
         ML_Hypertriton(dataH, bkgH, promptH, filename, pt_min, pt_max)
 
