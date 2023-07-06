@@ -18,7 +18,7 @@ dataH = TreeHandler('data.root','treeMLDplus')
 
 #background, cut on invariant mass, at least 3 times the counts for background as we have for the signal are needed
 bkgH = dataH.get_subset('inv_mass < 1.82 or 1.92 < inv_mass < 2.00', size=promptH.get_n_cand()*3)
-# print('number of bcandidates:', promptH.get_n_cand())
+print('number of candidates:', promptH.get_n_cand())
 # define a test/train dataset
 train_test_data = train_test_generator([promptH, bkgH], [1,0], test_size=0.5, random_state=42)
 
