@@ -97,8 +97,8 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
     model_hdl.train_test_model(train_test_data)
 
     #saving model
-    model_hdl.dump_model_handler(f'Models/Hypertriton_model_{pt_min}<pt<{pt_max}')
-    print('Model saved as:', f'Models/Hypertriton_model_{pt_min}<pt<{pt_max}')
+    model_hdl.dump_model_handler(f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}')
+    print('Model saved as:', f'Hypertriton_model_{pt_min}<pt<{pt_max}')
 
     
     y_pred_train = model_hdl.predict(train_test_data[0], False)
@@ -125,7 +125,6 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
     # ax.xaxis.set_label_coords(0.9, -0.075)
 
     # save output as pdf
-    filename = output_name
     save_output_as_pdf(filename)  
     print('output has been saved as:', filename)
 
@@ -148,19 +147,19 @@ if __name__ == "__main__":
         # Since Hyptertriton decays into two differently charged particles,
         # when two Like Sign particles are measured it has to be background signal
         dataH.get_handler_from_large_file(file_name='../Data/DataTable_18_pass3.root',tree_name='DataTable', 
-                            preselection =f'{pt_min} < pt < {pt_max}')
-        dataH = dataH.get_subset(size=170001*10)
+                            preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
+        dataH = dataH.get_subset(size=170001)
 
         promptH.get_handler_from_large_file(file_name='../Data/SignalTable_20g7.root',tree_name='SignalTable', 
-                            preselection =f'{pt_min} < pt < {pt_max}')
-        promptH = promptH.get_subset(size=5667*10)
+                            preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
+        promptH = promptH.get_subset(size=5667)
 
         bkgH.get_handler_from_large_file(file_name='../Data/DataTable_18LS_pass3.root',tree_name='DataTable', 
-                            preselection =f'{pt_min} < pt < {pt_max}')
-        bkgH = bkgH.get_subset(size=170001*10)
-        
-        filename=f"ML_Hypertriton_output_{pt_min}<pt<{pt_max}.pdf"  
+                            preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
+        bkgH = bkgH.get_subset(size=170001)
 
+        filename=f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}.pdf"  
+        
         ML_Hypertriton(dataH, bkgH, promptH, filename, pt_min, pt_max)
 
     
