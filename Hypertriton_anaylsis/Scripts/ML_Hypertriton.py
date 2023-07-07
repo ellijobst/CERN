@@ -123,6 +123,8 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
     ax = plt.gca()
     ax.set_xlabel(r'm($^3_\lambda H- ^3He - \pi^-$) (GeV/$c^2$)')#TODO: check!
     ax.xaxis.set_label_coords(0.9, -0.075)
+    ax.set_xlim([2.9479616, 3.1])
+    # ax.set_yscale('log')
 
     # save output as pdf
     save_output_as_pdf(filename)  
@@ -139,7 +141,7 @@ if __name__ == "__main__":
         pt_min = pt[i]
         pt_max = pt[i+1]
         print(f'{pt_min} < pt < {pt_max}')
-        
+
         # get files
         dataH = TreeHandler()
         promptH = TreeHandler()
@@ -157,6 +159,12 @@ if __name__ == "__main__":
 
         bkgH.get_handler_from_large_file(file_name='../Data/DataTable_18LS_pass3.root',tree_name='DataTable', 
                             preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
+        
+        # df = dataH.get_data_frame()
+        # print(df[:10])
+        # print(np.amin(df['m']), np.amax(df['m']))
+        # break
+
         # alternatively: select bkg events via the invariant mass
         # bkgH = dataH.get_subset('m < 2.991-3*0.0017 or m > 2.991+3*0.0017', size=promptH.get_n_cand()*3)
         # limits are taken from 
@@ -166,5 +174,5 @@ if __name__ == "__main__":
         filename=f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}.pdf"  
         
         ML_Hypertriton(dataH, bkgH, promptH, filename, pt_min, pt_max)
-
+        break
     
