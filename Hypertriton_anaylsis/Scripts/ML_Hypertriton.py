@@ -91,8 +91,8 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
         'colsample_bytree':(0.5, 0.9),
         }
     
-    model_hdl.optimize_params_optuna(train_test_data, hyper_pars_ranges, cross_val_scoring='roc_auc',\
-                                     timeout=120, n_jobs=-1, n_trials=100, direction='maximize')
+    # model_hdl.optimize_params_optuna(train_test_data, hyper_pars_ranges, cross_val_scoring='roc_auc',\
+    #                                  timeout=120, n_jobs=-1, n_trials=100, direction='maximize')
 
     model_hdl.train_test_model(train_test_data)
 
@@ -119,10 +119,10 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
 
     labels_list = ["after selection","before selection"]
     colors_list = ['orangered', 'cornflowerblue']
-    # plot_utils.plot_distr([selected_data_hndl, dataH], column='inv_mass', bins=200, labels=labels_list, colors=colors_list, density=True,fill=True, histtype='step', alpha=0.5)
-    # ax = plt.gca()
-    # ax.set_xlabel(r'm($^3_\lambda H- ^3He - \pi^-$) (GeV/$c^2$)')#TODO: check!
-    # ax.xaxis.set_label_coords(0.9, -0.075)
+    plot_utils.plot_distr([selected_data_hndl, dataH], column='m', bins=200, labels=labels_list, colors=colors_list, density=True,fill=True, histtype='step', alpha=0.5)
+    ax = plt.gca()
+    ax.set_xlabel(r'm($^3_\lambda H- ^3He - \pi^-$) (GeV/$c^2$)')#TODO: check!
+    ax.xaxis.set_label_coords(0.9, -0.075)
 
     # save output as pdf
     save_output_as_pdf(filename)  
@@ -131,15 +131,16 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
 
 if __name__ == "__main__":
     #specify the pt ranges we want to take a look at
-    pt = [2,3,4,5,6,9]
+    # pt = [2,3,4,5,6,9]
+    pt = [3,4,5,6,9]
 
     for i in range(len(pt)-1):
         # specify which dataset to look at
         pt_min = pt[i]
         pt_max = pt[i+1]
-
+        print(f'{pt_min} < pt < {pt_max}')
+        
         # get files
-        # TODO: get this working tomorrow!
         dataH = TreeHandler()
         promptH = TreeHandler()
         bkgH = TreeHandler()
@@ -156,8 +157,9 @@ if __name__ == "__main__":
 
         bkgH.get_handler_from_large_file(file_name='../Data/DataTable_18LS_pass3.root',tree_name='DataTable', 
                             preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
+        # alternatively: select bkg events via the invariant mass
         # bkgH = dataH.get_subset('m < 2.991-3*0.0017 or m > 2.991+3*0.0017', size=promptH.get_n_cand()*3)
-        # lomots are taken from 
+        # limits are taken from 
         # https://www.researchgate.net/publication/334719549_Highlights_of_the_production_of_anti-hyper-nuclei_and_exotica_with_ALICE_at_the_LHC/download
         # bkgH = bkgH.get_subset(size=170001)
 
