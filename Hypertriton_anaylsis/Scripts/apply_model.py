@@ -29,7 +29,7 @@ def save_output_as_pdf(filename):
     # close the object
     p.close()  
 
-def apply_ML_model(model_file, data_file, output_file, BDT_cut):
+def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cut=(3,4)):
     '''
     This function applies a Model to dataH.
     ---
@@ -40,6 +40,10 @@ def apply_ML_model(model_file, data_file, output_file, BDT_cut):
     ---
     returns: [dataH after the BDT cut, dataH]
     '''
+    # set limits for pt
+    pt_min = pt_cut[0]
+    pt_max = pt_cut[1]
+
     # create Model
     model_clf = xgb.XGBClassifier()
     model_hdl = ModelHandler(model_clf)
@@ -47,11 +51,11 @@ def apply_ML_model(model_file, data_file, output_file, BDT_cut):
     #load model
     model_hdl.load_model_handler(model_file)
 
-    #load data
+    #load data and cut on pt
     dataH = TreeHandler()
     dataH.get_handler_from_large_file(
         file_name=data_file, 
-        tree_name='DataTable', 
+        tree_name=tree_name, 
         preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
         )
 
@@ -82,7 +86,7 @@ def apply_ML_model(model_file, data_file, output_file, BDT_cut):
     ax.xaxis.set_label_coords(0.9, -0.075)
     ax.set_xlim([2.9479616, 3.1]) #TODO: check!
     # ax.set_yscale('log')
-
+    plt.close('all')
     # save output as pdf
     if output_file!=None:
         save_output_as_pdf(output_file)  
@@ -90,9 +94,44 @@ def apply_ML_model(model_file, data_file, output_file, BDT_cut):
 
     return [selected_data_hndl, dataH]
 
-def get_efficiency(MC_file, model_file, BDT_cut):
+def calculate_efficiency(model_file, MC_file, BDT_cut, generatedH, recoH, output):
+    # apply model+BDTcut to MC data
+    recoBDTH = apply_ML_model(model_file, MC_file, tree_name='SignalTable', output_file=None, BDT_cut=BDT_cut)[0]
+
+    df_recoBDTH = recoBDTH.get_data_frame()
+    df_generatedH = generatedH.get_data_frame()
+
+    if output != False:
+        print('Len Reco + HDF:', len(df_recoBDTH))
+        print('# generated Hypertritons:', len(df_generatedH))
+        plot_utils.plot_distr(
+            [generatedH, recoH, recoBDTH],
+            column='pt', 
+            bins=200, 
+            labels=['generated Hypertritons', 'reconstructed Hypertritons', 'reco Hypertritons after BDT_cut'],
+            colors = ['orangered', 'cornflowerblue', 'limegreen'],
+            density=False,#normalize to total number of counts
+            fill=True, 
+            histtype='step', 
+            alpha=0.5,
+            )
+        save_output_as_pdf(f'../Output/pt_disitribution_gen_reco_BDT>{BDT_cut}_{pt_min}<pt<{pt_max}.pdf')
+        print('Output saved as:',f'../Output/pt_disitribution_gen_reco_BDT>{BDT_cut}_{pt_min}<pt<{pt_max}.pdf')
+
+
+    # number of events in the corresponding pt range
+    n_gen = len(df_generatedH)
+    n_reco = len(df_recoBDTH)
+
+    # calculate efficiency
+    eff = n_reco/n_gen #TODO: check! Es könnte auch sein, dass man durch die recoH teilen muss, dann würde es mehr sinn ergeben
+    print(BDT_cut, eff)
+    return eff
+
+def get_efficiency(MC_file, model_file):
     '''
-    This function calculates the efficiency depending on the BDT cut
+    This function calculates the efficiency depending on the BDT cut. For the efficiency we only use MC files
+    TODO: there is a whole function for this!
     ---
     MC_file: input Monte Carlo file, with generated and reconstructed Hypertritons
     model_file: model that is applied to the reconstructed Hypertritons
@@ -115,7 +154,7 @@ def get_efficiency(MC_file, model_file, BDT_cut):
         tree_name='GenTable', #TODO: check!
         preselection =f'{pt_min} < pt < {pt_max}', #only apply pt cut
         )
-    
+
     # reconstructed Hypertritons 
     recoH = TreeHandler()
     recoH.get_handler_from_large_file(
@@ -125,30 +164,14 @@ def get_efficiency(MC_file, model_file, BDT_cut):
         )
     
     # apply model to reconstructed Hypertritons
-    recoBDTH = apply_ML_model(model_file, MC_file, output_file=None, BDT_cut=BDT_cut)
+    # pt cut is already considered here!
 
 
-    plot_utils.plot_distr(
-        [generatedH, recoH, recoBDTH],
-        column='pt', 
-        bins=200, 
-        labels=['generated Hypertritons', 'reconstructed Hypertritons', 'reco Hypertritons after BDT_cut'],
-        colors = ['orangered', 'cornflowerblue', 'applegreen'],
-        density=False,#normalize to total number of counts
-        fill=True, 
-        histtype='step', 
-        alpha=0.5,
-        )
-    save_output_as_pdf(f'../Output/pt_disitribution_gen_reco_BDT_3<pt<4.pdf')
+    BDT_cuts = np.linspace(0,0.99,100)
 
+    efficiency = [calculate_efficiency(MC_file=MC_file, model_file=model_file, BDT_cut=BDT_cut, generatedH=generatedH, recoH=recoH, output=False) for BDT_cut in BDT_cuts]
     
-    plt.show()
-    #TODO: sum up the counts in the respective pt range and divide them
-    n_gen = #TODO
-    n_reco = #TODO
-    eff = n_reco/n_gen
-
-    return eff
+    return [BDT_cuts, efficiency]
     
 def get_significance():
     pass
@@ -166,18 +189,19 @@ if __name__ == "__main__":
     output_file = f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}_all.pdf"
     MC_file = f'../Data/SignalTable_20g7.root'
 
-    apply_ML_model(model_file, data_file, output_file, BDT_cut=0.90)
-
     # calculate efficiency for different BDT Cut values in the range of 0 to 1 in steps of 0.01
-    BDT_cuts = np.linspace(0,1,101)
-    efficiency = [get_efficiency(MC_file, model_file, BDT_cut=BDT_cut) for BDT_cut in BDT_cuts]
-    
+    BDT_cuts, efficiency = get_efficiency(MC_file, model_file)
     # plot efficency over BDT cut
     # TODO: find better way(for sure there is a hipe4ml function!)
     plt.plot(
         BDT_cuts, efficiency,
-        label=r'$\varepsilon = #^3_\Lambda H_{reco} / #^3_\Lambda H_{gen}$',
+        # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
         color='orangered',
-        linestyle='',
     )
+    plt.xlabel('BDT cut')
+    plt.ylabel(r'Efficiency $\varepsilon $')
+    # plt.legend()
+
+    save_output_as_pdf(f'../Output/efficiency_BDT_{pt_min}<pt<{pt_max}.pdf')
+    plt.show()
     #TODO: missing other steps
