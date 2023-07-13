@@ -1,7 +1,11 @@
+#!/usr/bin/python3
 import numpy as np
 import pandas as pd
 import xgboost as xgb
 import matplotlib.pyplot as plt
+import json
+import scipy.optimize as opt
+import scipy.stats as stats
 from hipe4ml.model_handler import ModelHandler
 from hipe4ml.tree_handler import TreeHandler
 from hipe4ml import plot_utils
@@ -128,7 +132,7 @@ def calculate_efficiency(model_file, MC_file, BDT_cut, generatedH, recoH, output
     print(BDT_cut, eff)
     return eff
 
-def get_efficiency(MC_file, model_file):
+def get_efficiency(MC_file, model_file, BDT_cuts):
     '''
     This function calculates the efficiency depending on the BDT cut. For the efficiency we only use MC files
     TODO: there is a whole function for this!
@@ -137,7 +141,6 @@ def get_efficiency(MC_file, model_file):
     model_file: model that is applied to the reconstructed Hypertritons
     BDT_cut: BDT_cut that is applied
     '''
-    # number of expected hypertritons = 2*278971416*2.6e-5*0.25*efficiency
     # number of signal reco is the number of entries in the 3sigma region, apply pt cut and BDT cut
     # number of bkg is the number of bkg entries in the 3sigma region
     # to find the region fit a gaussian to the peak, for bgk we use the like sign file with a cut on the mass
@@ -166,18 +169,41 @@ def get_efficiency(MC_file, model_file):
     # apply model to reconstructed Hypertritons
     # pt cut is already considered here!
 
-
-    BDT_cuts = np.linspace(0,0.99,100)
-
     efficiency = [calculate_efficiency(MC_file=MC_file, model_file=model_file, BDT_cut=BDT_cut, generatedH=generatedH, recoH=recoH, output=False) for BDT_cut in BDT_cuts]
     
-    return [BDT_cuts, efficiency]
+    return efficiency
     
-def get_significance():
-    pass
-    #TODO
-    # N_hyp = 2*278971416*2.6e-5*0.25*eff
-    
+def get_significance(efficiency, BDT_cuts):
+    N_hyp = [2*278971416*2.6e-5*0.25*eff for eff in efficiency]
+    plt.plot(
+        BDT_cuts, N_hyp,
+        # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
+        color='orangered',
+    )
+    plt.xlabel('BDT cut')
+    plt.ylabel(r'$N_{Hyp}$')
+    # plt.legend()
+    plt.show()
+    save_output_as_pdf(f'../Output/Nhyp_BDT_{pt_min}<pt<{pt_max}.pdf')
+    print('Output saved as:', f'../Output/Nhyp_BDT_{pt_min}<pt<{pt_max}.pdf')
+
+def calculate_number_of_background_events(model_file, data_file, tree_name, output_file, BDT_cut, pt_cut):
+    selected_data_hndl, dataH =  apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cut)
+    df = selected_data_hndl.get_data_frame(column='m')
+    print(df[:10])
+    # m_Hyp = 
+    # try:
+	#     optimizedParameters, pcov = opt.curve_fit(norm, m, selected_data_hndl, p0=[m_Hyp, ])
+    # TODO: make this work!
+def norm(m, loc, scale, A):
+    return  A*stats.norm.pdf(m, loc=loc, scale=scale)
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
 
@@ -189,19 +215,39 @@ if __name__ == "__main__":
     output_file = f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}_all.pdf"
     MC_file = f'../Data/SignalTable_20g7.root'
 
-    # calculate efficiency for different BDT Cut values in the range of 0 to 1 in steps of 0.01
-    BDT_cuts, efficiency = get_efficiency(MC_file, model_file)
-    # plot efficency over BDT cut
-    # TODO: find better way(for sure there is a hipe4ml function!)
-    plt.plot(
-        BDT_cuts, efficiency,
-        # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
-        color='orangered',
-    )
-    plt.xlabel('BDT cut')
-    plt.ylabel(r'Efficiency $\varepsilon $')
-    # plt.legend()
+    # TODO: put this part in a function
+    # TODO: add single scripts for efficiency, significance. etc.
 
-    save_output_as_pdf(f'../Output/efficiency_BDT_{pt_min}<pt<{pt_max}.pdf')
+
+    # calculate efficiency for different BDT Cut values in the range of 0 to 1 in steps of 0.01
+    BDT_cuts = np.linspace(0,0.99,100)
+    # efficiency = get_efficiency(MC_file, model_file, BDT_cuts)
+
+    # with open("efficiency.json", 'w') as f:
+    #     json.dump(efficiency, f, indent=2) 
+
+    print('efficiency saved as:', f"efficiency.json")
+
+    with open("efficiency.json", 'r') as f:
+        efficiency = json.load(f)
+
+    # get_significance(efficiency, BDT_cuts)
+    calculate_number_of_background_events(model_file, data_file, tree_name='SignalTable', output_file, BDT_cut, pt_cut=(pt_min,pt_max))
+
+    # plot efficency over BDT cut
+    # TODO: find better way(for sure there is a hipe4ml function!)  
+    # plt.plot(
+    #     BDT_cuts, efficiency,
+    #     # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
+    #     color='orangered',
+    # )
+    # plt.xlabel('BDT cut')
+    # plt.ylabel(r'Efficiency $\varepsilon $')
+    # # plt.legend()
+
+    # save_output_as_pdf(f'../Output/efficiency_BDT_{pt_min}<pt<{pt_max}.pdf')
+
+
+
     plt.show()
     #TODO: missing other steps
