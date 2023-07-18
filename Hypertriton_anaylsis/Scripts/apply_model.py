@@ -33,6 +33,30 @@ def save_output_as_pdf(filename):
     # close the object
     p.close()  
 
+def norm(m, loc, scale, A):
+    return  A*stats.norm.pdf(m, loc=loc, scale=scale)
+
+def StartParamsNorm(df):
+    count, bins = np.histogram(df['m'], bins=50)
+    centered_bins = (bins[:-1] + bins[1:]) / 2
+    # count, bins = np.histogram(df, bins=50)
+    count_max = np.amax(count)
+
+    #calculate the first 2 moments from the ditribution
+    m = np.mean(np.array(df))
+    s = np.std(np.array(df))
+
+    #calculate params for the distribution
+    loc = m
+    scale = s
+
+    #calculate amplitude
+    dist = np.array(stats.norm.pdf(x=centered_bins,loc=loc,scale=scale))
+    dist_max = np.amax(dist)
+
+    A = count_max/dist_max
+    return [loc, scale, A]
+
 def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cut=(3,4)):
     '''
     This function applies a Model to dataH.
@@ -173,7 +197,11 @@ def get_efficiency(MC_file, model_file, BDT_cuts):
     
     return efficiency
     
-def get_significance(efficiency, BDT_cuts):
+def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cut):
+    pt_min = pt_cut[0]
+    pt_max = pt_cut[1]
+   
+    # get number of hypertritons
     N_hyp = [2*278971416*2.6e-5*0.25*eff for eff in efficiency]
     plt.plot(
         BDT_cuts, N_hyp,
@@ -187,19 +215,96 @@ def get_significance(efficiency, BDT_cuts):
     save_output_as_pdf(f'../Output/Nhyp_BDT_{pt_min}<pt<{pt_max}.pdf')
     print('Output saved as:', f'../Output/Nhyp_BDT_{pt_min}<pt<{pt_max}.pdf')
 
-def calculate_number_of_background_events(model_file, data_file, tree_name, output_file, BDT_cut, pt_cut):
-    selected_data_hndl, dataH =  apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cut)
-    df = selected_data_hndl.get_data_frame(column='m')
-    print(df[:10])
-    # m_Hyp = 
-    # try:
-	#     optimizedParameters, pcov = opt.curve_fit(norm, m, selected_data_hndl, p0=[m_Hyp, ])
-    # TODO: make this work!
-def norm(m, loc, scale, A):
-    return  A*stats.norm.pdf(m, loc=loc, scale=scale)
+    # # get number of background signal
+    selected_data_hndl, dataH =  apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut=0.7, pt_cut=pt_cut)
+   
+
+    df = selected_data_hndl.get_data_frame()
+    count, bins = np.histogram(df['m'], bins=50)
+    centered_bins = (bins[:-1] + bins[1:]) / 2
+
+    m_Hyp = 2.991
+    p0=[m_Hyp, 3*0.0017, 150]
+    # p0=StartParamsNorm(df)
+    optimizedParameters, pcov = opt.curve_fit(norm, centered_bins, count, p0=p0) #TODO:das funktioniert nicht !
+
+    plot_utils.plot_distr(selected_data_hndl, column=['m'], bins=50)
+    plt.plot(np.linspace(bins[0], bins[-1], 100), norm(np.linspace(bins[0], bins[-1], 100), *optimizedParameters), label='Gaussian Fit')
+    plt.show()
+
+    m_Hyp_fit = optimizedParameters[0]
+    std = optimizedParameters[1]
+
+    m_min = m_Hyp_fit-3*std
+    m_max = m_Hyp_fit+3*std
+
+    N_bkg = [calculate_number_of_background_events(model_file, 
+                                                   data_file, 
+                                                   bkg_file, 
+                                                   tree_name, 
+                                                   output_file=None, 
+                                                   BDT_cut=BDT_cut, 
+                                                   m_cut = (m_min, m_max),
+                                                   pt_cut=pt_cut) for BDT_cut in BDT_cuts]
+    # N_bkg = 119166
+    significance = [n_hyp/np.sqrt(n_hyp+n_bkg) for n_hyp,n_bkg in zip(N_hyp,N_bkg)]
 
 
+    plt.plot(BDT_cuts, significance,
+             color='orangered')
+    plt.xlabel('BDT cut')
+    plt.ylabel(r'Significance')
+    # plt.legend()
+    plt.show()
+    save_output_as_pdf(f'../Output/Sign_BDT_{pt_min}<pt<{pt_max}.pdf')
+    print('Output saved as:', f'../Output/Sign_BDT_{pt_min}<pt<{pt_max}.pdf')
 
+    return significance
+
+def calculate_number_of_background_events(model_file, data_file, bkg_file, tree_name, output_file, m_cut, BDT_cut, pt_cut):
+    pt_min = pt_cut[0]
+    pt_max = pt_cut[1]
+
+    # get number of background signal
+    # selected_data_hndl, dataH =  apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut=BDT_cut, pt_cut=pt_cut)
+    
+   
+    # df = selected_data_hndl.get_data_frame()
+    # count, bins = np.histogram(df['m'], bins=50)
+    # centered_bins = (bins[:-1] + bins[1:]) / 2
+
+    # m_Hyp = 2.991
+    # p0=[m_Hyp, 3*0.0017, 150]
+    # # p0=StartParamsNorm(df)
+    # optimizedParameters, pcov = opt.curve_fit(norm, centered_bins, count, p0=p0) #TODO:das funktioniert nicht !
+
+    # plot_utils.plot_distr(selected_data_hndl, column=['m'], bins=50)
+    # plt.plot(np.linspace(bins[0], bins[-1], 100), norm(np.linspace(bins[0], bins[-1], 100), *optimizedParameters), label='Gaussian Fit')
+    # plt.show()
+
+    # m_Hyp_fit = optimizedParameters[0]
+    # std = optimizedParameters[1]
+
+    # m_min = m_Hyp_fit-3*std
+    # m_max = m_Hyp_fit+3*std
+    m_min = m_cut[0]
+    m_max = m_cut[1]
+
+    model_clf = xgb.XGBClassifier()
+    model_hdl = ModelHandler(model_clf)
+   
+    model_hdl.load_model_handler(model_file)
+
+    bkgH = TreeHandler()
+    bkgH.get_handler_from_large_file(file_name=bkg_file,tree_name='DataTable', 
+                            preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35 and {m_min} < m < {m_max}')
+    bkgH.apply_model_handler(model_hdl, False)
+
+    # cut on BDT
+    selected_bkg_hndl = bkgH.get_subset(f'model_output>{BDT_cut}')
+    N_bkg = selected_bkg_hndl.get_n_cand()
+    print(N_bkg)
+    return N_bkg
 
 
 
@@ -214,6 +319,9 @@ if __name__ == "__main__":
     data_file = '../Data/DataTable_18_pass3.root'
     output_file = f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}_all.pdf"
     MC_file = f'../Data/SignalTable_20g7.root'
+    bkg_file = f'../Data/DataTable_18LS_pass3.root'
+
+
 
     # TODO: put this part in a function
     # TODO: add single scripts for efficiency, significance. etc.
@@ -226,28 +334,47 @@ if __name__ == "__main__":
     # with open("efficiency.json", 'w') as f:
     #     json.dump(efficiency, f, indent=2) 
 
-    print('efficiency saved as:', f"efficiency.json")
+    # print('efficiency saved as:', f"efficiency.json")
 
     with open("efficiency.json", 'r') as f:
         efficiency = json.load(f)
 
-    # get_significance(efficiency, BDT_cuts)
-    calculate_number_of_background_events(model_file, data_file, tree_name='SignalTable', output_file, BDT_cut, pt_cut=(pt_min,pt_max))
+    # significance = get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name='DataTable', pt_cut=(pt_min, pt_max))
+    
+    # with open("significance.json", 'w') as f:
+    #     json.dump(significance, f, indent=2) 
+
+    # print('significance saved as:', f"significance.json")
+
+    with open("significance.json", 'r') as f:
+        significance = json.load(f)
+    
+    
+    # calculate_number_of_background_events(model_file, data_file, bkg_file, tree_name='DataTable', output_file=None, BDT_cut=0.9, pt_cut=(pt_min,pt_max))
 
     # plot efficency over BDT cut
     # TODO: find better way(for sure there is a hipe4ml function!)  
-    # plt.plot(
-    #     BDT_cuts, efficiency,
-    #     # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
-    #     color='orangered',
-    # )
-    # plt.xlabel('BDT cut')
-    # plt.ylabel(r'Efficiency $\varepsilon $')
-    # # plt.legend()
+    plt.plot(
+        BDT_cuts, efficiency,
+        # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
+        color='orangered',
+    )
+    plt.xlabel('BDT cut')
+    plt.ylabel(r'Efficiency $\varepsilon $')
+    # plt.legend()
 
-    # save_output_as_pdf(f'../Output/efficiency_BDT_{pt_min}<pt<{pt_max}.pdf')
+    save_output_as_pdf(f'../Output/efficiency_BDT_{pt_min}<pt<{pt_max}.pdf')
 
-
+    plt.plot(
+        BDT_cuts, significance,
+        # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
+        color='orangered',
+    )
+    plt.xlabel('BDT cut')
+    plt.ylabel(r'Significance')
+    # plt.legend()
+    plt.show()
+    save_output_as_pdf(f'../Output/significance_BDT_{pt_min}<pt<{pt_max}.pdf')
 
     plt.show()
     #TODO: missing other steps
