@@ -1,7 +1,7 @@
 # CERN
 Investigating the Spin of the Hypertriton
 
-hipe4ml documentary:
+hipe4ml documentation:
 https://hipe4ml.github.io/hipe4ml/index.html
 
 hipe4ml tutorial:
