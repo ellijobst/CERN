@@ -48,8 +48,13 @@ def get_m_Hyp(px_He,py_He,pz_He, px_Pi,py_Pi,pz_Pi, px_Hyp, py_Hyp,pz_Hyp):
 def get_cos_theta_beam(qx_He, qy_He, qz_He):
     return qz_He/np.sqrt(qx_He**2+qy_He**2+qz_He**2)
 
-def get_cos_theta_pHyp(qx_He, qy_He, qz_He, px_Hyp, py_Hyp, pz_Hyp):
-    return (qx_He*px_Hyp+qy_He*py_Hyp+qz_He*pz_Hyp)/np.sqrt(qx_He**2+qy_He**2+qz_He**2)*np.sqrt(px_Hyp**2+py_Hyp**2+pz_Hyp**2)
+def get_cos_theta_pHyp(qx_He, qy_He, qz_He, px_He, px_Pi, py_He, py_Pi, pz_He, pz_Pi):
+    px_Hyp = px_Pi+px_He
+    py_Hyp = py_Pi+py_He
+    pz_Hyp = pz_Pi+pz_He
+    cos_theta=((qx_He*px_Hyp)+(qy_He*py_Hyp)+(qz_He*pz_Hyp))/(np.sqrt(qx_He**2+qy_He**2+qz_He**2)*np.sqrt(px_Hyp**2+py_Hyp**2+pz_Hyp**2))
+    print(cos_theta)
+    return cos_theta
 
 def get_CMSFourVector(m,px,py,pz,m_Hyp, px_Hyp, py_Hyp, pz_Hyp):
     
@@ -96,51 +101,80 @@ def boost(df, i):
     FourVectors = FourVector_Hyp+FourVector_He3+FourVector_Pi
     # return (FourVector_Hyp, FourVector_He3, FourVector_Pi)
     return FourVectors
-#['pt', 'rapidity', 'phi', 'ct', 'pxHe3', 'pyHe3', 'pzHe3', 'pxPi', 'pyPi', 'pzPi', 'centrality', 'matter']
-if __name__ == "__main__":
 
-    # v = ROOT.Math.LorentzVector
-    # Simulated Hypertritons
-    labFrameH = TreeHandler()
-    
-    # # generated
-    # labFrameH.get_handler_from_large_file(
-    #     file_name="../Data/SignalTable_B_20g7.root", 
-    #     tree_name='GenTable',
-    #     preselection='rapidity < 0.5'
-    # )   
-
-    # reconstructed
-    labFrameH.get_handler_from_large_file(
-        file_name="../Data/SignalTable_B_20g7.root", 
-        tree_name='SignalTable',
-        preselection='Rapidity < 0.5 and pt > 0.15 and PseudoRapidityHe3 < 0.8 and PseudoRapidityPion < 0.8'
-    )   
-
-    m_He = 2.80839 #GeV
-    m_Pi = 0.139570 #GeV
-    
-    df=labFrameH.get_data_frame()
+def get_df(fileH):
+    df=fileH.get_data_frame()
    
     indices = [i for i in range(0,len(df),1)]
 
     df['idx']=indices
     df.set_index('idx', inplace=True)
-
+    df = df[:20]
     # calculate four vectors for remaining events:
     # momenta in Hypertriton Rest Frame are denoted with q
-    BoostedLorentzVectors = np.array([boost(df=df, i=i) for i in range(len(df))])
+    BoostedLorentzVectors = np.array([boost(df=df, i=i) for i in range(20)])
 
     df = pd.concat([df, pd.DataFrame(BoostedLorentzVectors, index=df.index, columns=['mHyp', 'qxHyp', 'qyHyp', 'qzHyp', 'EHe3', 'qxHe3', 'qyHe3', 'qzHe3', 'EPi', 'qxPi', 'qyPi', 'qzPi']
                                      )], axis=1)
+ 
+    df['cos_theta_beam'] = [get_cos_theta_beam(df['qxHe3'][i], df['qyHe3'][i], df['qzHe3'][i]) for i in range(20)]
+    df['cos_theta_pHyp'] = [get_cos_theta_pHyp(df['qxHe3'][i], df['qyHe3'][i], df['qzHe3'][i], 
+                                               df['pxHe3'][i], df['pxPi'][i],
+                                               df['pyHe3'][i], df['pyPi'][i],
+                                               df['pzHe3'][i], df['pzPi'][i]) for i in range(20)]
+    df['pt_He3'] = [get_pT(df['pxHe3'][i], df['pyHe3'][i]) for i in range(20)]
+    df['pt_Pi'] = [get_pT(df['pxPi'][i], df['pyPi'][i]) for i in range(20)]
     
-    df['cos_theta_beam'] = [get_cos_theta_beam(df['qxHe3'][i], df['qyHe3'][i], df['qzHe3'][i]) for i in range(len(df))]
-    df['cos_theta_pHyp'] = [get_cos_theta_pHyp(df['qxHe3'][i], df['qyHe3'][i], df['qzHe3'][i], df['pxHe3']+df['pxPi'],df['pyHe3']+df['pyPi'],df['pzHe3']+df['pzPi']) for i in range(len(df))]
+    return df
 
-    df.write_df_to_root_files(base_file_name='SignalTableDataFrame',
-                              tree_name='df',
-                              path='./',
-                              save_slices=False,
-                              )
-    # TODO: plot ?
-    #TODO: write df to root
+
+
+if __name__ == "__main__":
+    #['pt', 'TPCnSigmaHe3', 'ct', 'm', 'ArmenterosAlpha', 'V0CosPA', 'V0Chi2', 'PiProngPt', 'He3ProngPt', 'ProngsDCA', 
+    # 'He3ProngPvDCA', 'PiProngPvDCA', 'He3ProngPvDCAXY', 'PiProngPvDCAXY', 'NpidClustersHe3', 'NpidClustersPion', 'NitsClustersHe3', 
+    # 'TPCnSigmaPi', 'Lrec', 'centrality', 'V0radius', 'Rapidity', 'PseudoRapidityHe3', 'PseudoRapidityPion', 'Matter', 'TOFnSigmaHe3',
+    #  'TOFnSigmaPi', 'TPCmomHe3', 'TPCsignalHe3', 'pxHe3', 'pyHe3', 'pzHe3', 'pxPi', 'pyPi', 'pzPi', 'magField']
+    
+    # v = ROOT.Math.LorentzVector
+
+    pt_min = 2
+    pt_max = 3
+
+    labFrameH_gen = TreeHandler()
+    labFrameH_reco = TreeHandler()
+    
+    # generated
+    labFrameH_gen.get_handler_from_large_file(
+        file_name="../Data/SignalTable_B_20g7.root", 
+        tree_name='GenTable',
+        preselection=f'rapidity < 0.5 '#and {pt_min} < pt < {pt_max}' #NOTE: for GenTable it is rapidity, for SignalTable it is Rapidity
+    )   
+   
+    # reconstructed
+    labFrameH_reco.get_handler_from_large_file(
+        file_name="../Data/SignalTable_B_20g7.root", 
+        tree_name='SignalTable',
+        preselection=f'Rapidity < 0.5 and PseudoRapidityHe3 < 0.8 and PseudoRapidityPion < 0.8 '#and  {pt_min} < pt < {pt_max}'
+    )   
+    print(labFrameH_gen.get_var_names())
+    m_He = 2.80839 #GeV
+    m_Pi = 0.139570 #GeV
+    
+    df_generated=get_df(labFrameH_gen)
+    df_reco = get_df(labFrameH_reco)
+    df_reco = df_reco.loc[(df_reco['pt_He3']>0.15)&(df_reco['pt_Pi']>0.15)]
+    
+    df_reco.to_csv('reconstrucedHypertritons.csv')
+    df_generated.to_csv('generatedHypertritons.csv')
+    # print(df_reco.columns)
+    # plt.figure()
+    # # df_reco.plot(x = 'cos_theta_beam',y = 'cos_theta_pHyp', kind='line')
+    # plt.plot(np.array(df_reco['cos_theta_beam']), np.array(df_reco['cos_theta_pHyp']), linestyle='', marker='o', color='orangered')
+    # plt.show()
+    # dfr = pd.read_csv('reconstrucedHypertritons.csv')
+    # print(dfr)
+
+
+
+    # # TODO: plot ?
+    # #TODO: write df to root
