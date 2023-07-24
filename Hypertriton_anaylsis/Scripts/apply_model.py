@@ -10,6 +10,7 @@ from hipe4ml.model_handler import ModelHandler
 from hipe4ml.tree_handler import TreeHandler
 from hipe4ml import plot_utils
 from matplotlib.backends.backend_pdf import PdfPages
+# from ML_Hypertriton import save_output_as_pdf
 
 def save_output_as_pdf(filename):
     '''
@@ -29,7 +30,7 @@ def save_output_as_pdf(filename):
         
         # and saving the files
         fig.savefig(p, format='pdf') 
-        plt.close('all')
+        # plt.close('all')
     # close the object
     p.close()  
 
@@ -88,12 +89,14 @@ def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cu
         )
 
     #apply model
-    dataH.apply_model_handler(model_hdl, False)
+    dataH.apply_model_handler(model_hdl, output_margin=True)# note: this needs to be set to true!!
 
     # cut on BDT
-    selected_data_hndl = dataH.get_subset(f'model_output>{BDT_cut}')
+    # without BDT cut
+    selected_data_hndl = dataH #.get_subset(f'model_output>{BDT_cut}')
 
     #plot
+    '''
     labels_list = ["after selection","before selection"]
     colors_list = ['orangered', 'cornflowerblue']
 
@@ -110,11 +113,13 @@ def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cu
         )
 
     ax = plt.gca()
-    ax.set_xlabel(r'm($^3_\Lambda H- ^3He - \pi^-$) (GeV/$c^2$)')#TODO: check!
+    ax.set_xlabel(r'm($^3$He $\pi^-$) (GeV/$c^2$)')#TODO: check!
     ax.xaxis.set_label_coords(0.9, -0.075)
     ax.set_xlim([2.9479616, 3.1]) #TODO: check!
     # ax.set_yscale('log')
-    plt.close('all')
+    # plt.close('all')
+    '''
+
     # save output as pdf
     if output_file!=None:
         save_output_as_pdf(output_file)  
@@ -126,27 +131,29 @@ def calculate_efficiency(model_file, MC_file, BDT_cut, generatedH, recoH, output
     # apply model+BDTcut to MC data
     recoBDTH = apply_ML_model(model_file, MC_file, tree_name='SignalTable', output_file=None, BDT_cut=BDT_cut)[0]
 
-    df_recoBDTH = recoBDTH.get_data_frame()
+    df_recoBDTH = recoBDTH.get_data_frame() #TODO: das mit n cand ersetzen!
     df_generatedH = generatedH.get_data_frame()
+    # note: BDT absolute value is saved as 'model_output' column
 
+    # plot distribution
     if output != False:
-        print('Len Reco + HDF:', len(df_recoBDTH))
-        print('# generated Hypertritons:', len(df_generatedH))
         plot_utils.plot_distr(
-            [generatedH, recoH, recoBDTH],
-            column='pt', 
-            bins=200, 
-            labels=['generated Hypertritons', 'reconstructed Hypertritons', 'reco Hypertritons after BDT_cut'],
-            colors = ['orangered', 'cornflowerblue', 'limegreen'],
+            [recoBDTH],
+            column='model_output', 
+            bins=50, 
+            labels=['reco Hypertritons after BDT_cut'],
+            colors = ['orangered'],
             density=False,#normalize to total number of counts
             fill=True, 
             histtype='step', 
             alpha=0.5,
             )
-        save_output_as_pdf(f'../Output/pt_disitribution_gen_reco_BDT>{BDT_cut}_{pt_min}<pt<{pt_max}.pdf')
-        print('Output saved as:',f'../Output/pt_disitribution_gen_reco_BDT>{BDT_cut}_{pt_min}<pt<{pt_max}.pdf')
-
-
+        # save_output_as_pdf(f'../Output/pt_disitribution_gen_reco_BDT>{BDT_cut}_{pt_min}<pt<{pt_max}.pdf')
+        plt.show()
+        # print('Output saved as:',f'../Output/pt_disitribution_gen_reco_BDT>{BDT_cut}_{pt_min}<pt<{pt_max}.pdf')
+    exit()
+    ml_out_fig = plot_utils.plot_output_train_test(model_hdl, train_test_data, bins= 100, 
+                                               output_margin=True, labels=leg_labels, logscale=True, density=True)
     # number of events in the corresponding pt range
     n_gen = len(df_generatedH)
     n_reco = len(df_recoBDTH)
@@ -165,14 +172,6 @@ def get_efficiency(MC_file, model_file, BDT_cuts):
     model_file: model that is applied to the reconstructed Hypertritons
     BDT_cut: BDT_cut that is applied
     '''
-    # number of signal reco is the number of entries in the 3sigma region, apply pt cut and BDT cut
-    # number of bkg is the number of bkg entries in the 3sigma region
-    # to find the region fit a gaussian to the peak, for bgk we use the like sign file with a cut on the mass
-    # get significance S = nbkg/sqrt(nbkg+nsignal)
-    # plot significance over bdt cut
-    # plot efficiency*significance over bdt cut -> find maximum
-    
-    # load MC events
 
     # generated Hypertritons
     generatedH = TreeHandler()
@@ -193,7 +192,7 @@ def get_efficiency(MC_file, model_file, BDT_cuts):
     # apply model to reconstructed Hypertritons
     # pt cut is already considered here!
 
-    efficiency = [calculate_efficiency(MC_file=MC_file, model_file=model_file, BDT_cut=BDT_cut, generatedH=generatedH, recoH=recoH, output=False) for BDT_cut in BDT_cuts]
+    efficiency = [calculate_efficiency(MC_file=MC_file, model_file=model_file, BDT_cut=BDT_cut, generatedH=generatedH, recoH=recoH, output=True) for BDT_cut in BDT_cuts]
     
     return efficiency
     
@@ -299,12 +298,14 @@ def calculate_number_of_background_events(model_file, data_file, bkg_file, tree_
     bkgH.get_handler_from_large_file(file_name=bkg_file,tree_name='DataTable', 
                             preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35 and {m_min} < m < {m_max}')
     bkgH.apply_model_handler(model_hdl, False)
+    N_before = bkgH.get_n_cand()
 
     # cut on BDT
     selected_bkg_hndl = bkgH.get_subset(f'model_output>{BDT_cut}')
     N_bkg = selected_bkg_hndl.get_n_cand()
+    N_bkg_after = N_before - N_bkg
     print(N_bkg)
-    return N_bkg
+    return N_bkg#TODO: check!
 
 
 
@@ -321,7 +322,7 @@ if __name__ == "__main__":
     MC_file = f'../Data/SignalTable_20g7.root'
     bkg_file = f'../Data/DataTable_18LS_pass3.root'
 
-
+    apply_ML_model(model_file, data_file, tree_name='DataTable', output_file='TEst', pt_cut=(3,4), BDT_cut=0.8)
 
     # TODO: put this part in a function
     # TODO: add single scripts for efficiency, significance. etc.
@@ -329,7 +330,11 @@ if __name__ == "__main__":
 
     # calculate efficiency for different BDT Cut values in the range of 0 to 1 in steps of 0.01
     BDT_cuts = np.linspace(0,0.99,100)
-    # efficiency = get_efficiency(MC_file, model_file, BDT_cuts)
+
+
+
+    efficiency = get_efficiency(MC_file, model_file, BDT_cuts)
+    exit()
 
     # with open("efficiency.json", 'w') as f:
     #     json.dump(efficiency, f, indent=2) 
@@ -374,7 +379,18 @@ if __name__ == "__main__":
     plt.ylabel(r'Significance')
     # plt.legend()
     plt.show()
-    save_output_as_pdf(f'../Output/significance_BDT_{pt_min}<pt<{pt_max}.pdf')
+    save_output_as_pdf(f'../Output/significance_BDT_{pt_min}_pt_{pt_max}.pdf')
 
+
+    signxeff = [x*y for x,y in zip(significance, efficiency)]
+    plt.plot(
+        BDT_cuts, signxeff,
+        # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
+        color='orangered',
+    )
+    plt.xlabel('BDT cut')
+    plt.ylabel(r'Significance x Efficiency')
+    # plt.legend()
     plt.show()
+    save_output_as_pdf(f'../Output/significancexEfficiency_BDT_{pt_min}_pt_{pt_max}.pdf')
     #TODO: missing other steps
