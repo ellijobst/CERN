@@ -63,11 +63,11 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
     #plotting
     leg_labels = ['background', 'signal']
 
-    plot_utils.plot_distr([bkgH, promptH], vars_to_draw, bins=100, labels=leg_labels, \
-                        log=True, density=True, figsize=(12, 7), alpha=0.3, grid=False)
+    # plot_utils.plot_distr([bkgH, promptH], vars_to_draw, bins=100, labels=leg_labels, \
+    #                     log=True, density=True, figsize=(12, 7), alpha=0.3, grid=False)
     
-    plt.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.96, hspace=0.55, wspace=0.55)
-    plot_utils.plot_corr([bkgH, promptH], vars_to_draw, leg_labels)
+    # plt.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.96, hspace=0.55, wspace=0.55)
+    # plot_utils.plot_corr([bkgH, promptH], vars_to_draw, leg_labels)
 
     # select variables for training, remove those that are very different for bkg and signal events
     features_for_train = vars_to_draw.copy()
@@ -79,6 +79,13 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
     # create Model
     model_clf = xgb.XGBClassifier()
     model_hdl = ModelHandler(model_clf, features_for_train)
+
+    pt_min = 3
+    pt_max = 4
+
+    model_file = f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}'
+
+    model_hdl.load_model_handler(model_file)
 
     # define the shape of the model (how deep, how many trees etc.)
     hyper_pars_ranges = {
@@ -94,15 +101,23 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
     # model_hdl.optimize_params_optuna(train_test_data, hyper_pars_ranges, cross_val_scoring='roc_auc',\
     #                                  timeout=120, n_jobs=-1, n_trials=100, direction='maximize')
 
-    model_hdl.train_test_model(train_test_data)
+    # model_hdl.train_test_model(train_test_data)
 
     #saving model
+    # model_hdl.dump_model_handler(f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}')
+    # print('Model saved as:', f'Hypertriton_model_{pt_min}<pt<{pt_max}')
+
+    
+    y_pred_train = model_hdl.predict(train_test_data[0], True)
+    y_pred_test = model_hdl.predict(train_test_data[2], True)
+
+    # print(y_pred_train)
+    # print(y_pred_test)
+
     model_hdl.dump_model_handler(f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}')
     print('Model saved as:', f'Hypertriton_model_{pt_min}<pt<{pt_max}')
 
-    
-    y_pred_train = model_hdl.predict(train_test_data[0], False)
-    y_pred_test = model_hdl.predict(train_test_data[2], False)
+    # exit()
 
     #compare trainig and testing set, in case the classifier picked up some features from the training dataset
     plt.rcParams["figure.figsize"] = (10, 7)
@@ -173,6 +188,6 @@ if __name__ == "__main__":
 
         filename=f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}.pdf"  
         
-        # ML_Hypertriton(dataH, bkgH, promptH, filename, pt_min, pt_max)
+        ML_Hypertriton(dataH, bkgH, promptH, filename, pt_min, pt_max)
         break
     
