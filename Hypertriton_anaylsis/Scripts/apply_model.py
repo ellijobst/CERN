@@ -10,7 +10,6 @@ from hipe4ml.model_handler import ModelHandler
 from hipe4ml.tree_handler import TreeHandler
 from hipe4ml import plot_utils
 from matplotlib.backends.backend_pdf import PdfPages
-# from ML_Hypertriton import save_output_as_pdf
 
 def save_output_as_pdf(filename):
     '''
@@ -53,7 +52,7 @@ def StartParamsNorm(df):
     A = count_max/dist_max
     return [loc, scale, A]
 
-def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cut=(3,4)):
+def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cut):
     '''
     This function applies a Model to dataH.
     ---
@@ -87,17 +86,20 @@ def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cu
     dataH.apply_model_handler(model_hdl, output_margin=True)# note: this needs to be set to true!!
 
     # cut on BDT
-    # without BDT cut
     selected_data_hndl = dataH.get_subset(f'model_output>{BDT_cut}')
 
-    #plot
+    # without BDT cut
+    # selected_data_hndl = dataH
+
+    #plot BDT Value distribution to figure out the BDT Value bin limits
     '''
-    labels_list = ["after selection","before selection"]
-    colors_list = ['orangered', 'cornflowerblue']
+    plt.figure()
+    labels_list = ['BDT value distribution']
+    colors_list = ['orangered']
 
     plot_utils.plot_distr(
-        [selected_data_hndl, dataH], 
-        column='m', 
+        [dataH], 
+        column='model_output', 
         bins=200, 
         labels=labels_list, 
         colors=colors_list, 
@@ -108,11 +110,12 @@ def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cu
         )
 
     ax = plt.gca()
-    ax.set_xlabel(r'm($^3$He $\pi^-$) (GeV/$c^2$)')#TODO: check!
-    ax.xaxis.set_label_coords(0.9, -0.075)
-    ax.set_xlim([2.9479616, 3.1]) #TODO: check!
+    plt.show()
+    # ax.set_xlabel(r'm($^3$He $\pi^-$) (GeV/$c^2$)')#TODO: check!
+    # ax.xaxis.set_label_coords(0.9, -0.075)
+    # ax.set_xlim([2.9479616, 3.1]) #TODO: check!
     # ax.set_yscale('log')
-    # plt.close('all')
+    plt.close()
     '''
 
     # save output as pdf
@@ -124,7 +127,7 @@ def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cu
 
 def calculate_efficiency(model_file, MC_file, BDT_cut, generatedH, recoH, output):
     # apply model+BDTcut to MC data
-    recoBDTH = apply_ML_model(model_file, MC_file, tree_name='SignalTable', output_file=None, BDT_cut=BDT_cut)[0]
+    recoBDTH = apply_ML_model(model_file, MC_file, tree_name='SignalTable', output_file=None, BDT_cut=BDT_cut, pt_cut=(pt_min, pt_max))[0]
 
     n_reco = recoBDTH.get_n_cand() 
     n_gen = generatedH.get_n_cand()
@@ -149,10 +152,10 @@ def calculate_efficiency(model_file, MC_file, BDT_cut, generatedH, recoH, output
         plt.show()
         print(counts)
         # print('Output saved as:',f'../Output/pt_disitribution_gen_reco_BDT>{BDT_cut}_{pt_min}<pt<{pt_max}.pdf')
-   
+
     # calculate efficiency
 
-    eff = n_reco/n_gen #TODO: check! Es könnte auch sein, dass man durch die recoH teilen muss, dann würde es mehr sinn ergeben
+    eff = n_reco/n_gen 
     print(BDT_cut, eff)
     return eff
 
@@ -170,7 +173,7 @@ def get_efficiency(MC_file, model_file, BDT_cuts):
     generatedH = TreeHandler()
     generatedH.get_handler_from_large_file(
         file_name=MC_file, 
-        tree_name='GenTable', #TODO: check!
+        tree_name='GenTable', 
         preselection =f'{pt_min} < pt < {pt_max}', #only apply pt cut
         )
 
@@ -197,6 +200,9 @@ def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cu
    
     # get number of hypertritons
     N_hyp = [2*278971416*2.6e-5*0.25*eff for eff in efficiency]
+    
+    # plt Number of Hypertritons
+    '''
     plt.plot(
         BDT_cuts, N_hyp,
         color='orangered',
@@ -207,8 +213,10 @@ def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cu
     plt.show()
     save_output_as_pdf(f'../Output/Nhyp_BDT_{pt_min}<pt<{pt_max}.pdf')
     print('Output saved as:', f'../Output/Nhyp_BDT_{pt_min}<pt<{pt_max}.pdf')
+    plt.close()
+    '''
 
-    # determine cut on invariant mass
+    # determine cut on invariant mass with gaussian fit
     selected_data_hndl, dataH =  apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut=0.7, pt_cut=pt_cut)
    
     df = selected_data_hndl.get_data_frame()
@@ -220,6 +228,7 @@ def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cu
     # p0=StartParamsNorm(df)
     optimizedParameters, pcov = opt.curve_fit(norm, centered_bins, count, p0=p0) #TODO:das funktioniert nicht !
 
+    plt.figure()
     plot_utils.plot_distr(selected_data_hndl, column=['m'], bins=50)
     plt.plot(np.linspace(bins[0], bins[-1], 100), norm(np.linspace(bins[0], bins[-1], 100), *optimizedParameters), label='Gaussian Fit')
     plt.show()
@@ -243,14 +252,18 @@ def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cu
                                                    pt_cut=pt_cut) for BDT_cut in BDT_cuts]
     # N_bkg = 119166
     significance = [n_hyp/np.sqrt(n_hyp+n_bkg) for n_hyp,n_bkg in zip(N_hyp,N_bkg)]
-
+    
+    # plot significance
+    '''
+    plt.figure()
     plt.plot(BDT_cuts, significance, color='orangered')
     plt.xlabel('BDT cut')
     plt.ylabel(r'Significance')
     plt.show()
     save_output_as_pdf(f'../Output/Sign_BDT_{pt_min}<pt<{pt_max}.pdf')
     print('Output saved as:', f'../Output/Sign_BDT_{pt_min}<pt<{pt_max}.pdf')
-
+    plt.close()
+    '''
     return significance
 
 def calculate_number_of_background_events(model_file, data_file, bkg_file, tree_name, output_file, m_cut, BDT_cut, pt_cut):
@@ -279,86 +292,111 @@ def calculate_number_of_background_events(model_file, data_file, bkg_file, tree_
     N_bkg = selected_bkg_hndl.get_n_cand()
     N_bkg_after = N_before - N_bkg
     print(N_bkg)
-    return N_bkg#TODO: check!
+    return N_bkg
 
 
 if __name__ == "__main__":
-
-    pt_min = 3
-    pt_max = 4
-
-    model_file = f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}'
+    
+    # input data files
     data_file = '../Data/DataTable_18_pass3.root'
-    output_file = f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}_all.pdf"
     MC_file = f'../Data/SignalTable_20g7.root'
     bkg_file = f'../Data/DataTable_18LS_pass3.root'
-
-    # apply_ML_model(model_file, data_file, tree_name='DataTable', output_file='generic_output_file.pdf', pt_cut=(3,4), BDT_cut=0.8)
-
-    # TODO: put this part in a function
-    # TODO: add single scripts for efficiency, significance. etc.
-
-
-    BDT_cuts = np.linspace(-15,10,50)
-
-    # calculate efficiency for different BDT values
-
-    # efficiency = get_efficiency(MC_file, model_file, BDT_cuts)
-    # with open("efficiency.json", 'w') as f:
-    #     json.dump(efficiency, f, indent=2) 
-
-    # print('efficiency saved as:', f"efficiency.json")
-
-    with open(f"efficiency_{pt_min}_pt_{pt_max}.json", 'r') as f:
-        efficiency = json.load(f)
-
-
-    #calculate significance for different BDT values
-
-    # significance = get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name='DataTable', pt_cut=(pt_min, pt_max))
     
-    # with open("significance.json", 'w') as f:
-    #     json.dump(significance, f, indent=2) 
+    pt = [3,4,5,6,7]
 
-    # print('significance saved as:', f"significance.json")
+    for i in range(len(pt)-1):
+        # specify which dataset to look at
+        pt_min = pt[i]
+        pt_max = pt[i+1]
+        print(f'{pt_min} < pt < {pt_max}')
 
-    with open(f"significance_{pt_min}_pt_{pt_max}.json", 'r') as f:
-        significance = json.load(f)
-    
-    
-    # plot efficency over BDT cut
-    # TODO: find better way(for sure there is a hipe4ml function!)  
-    plt.figure()
-    plt.plot(
-        BDT_cuts, efficiency,
-        # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
-        color='orangered',
-    )
-    plt.xlabel('BDT cut')
-    plt.ylabel(r'Efficiency $\varepsilon $')
-    # plt.legend()
-    save_output_as_pdf(f'../Output/efficiency_BDT_{pt_min}<pt<{pt_max}.pdf')
-    plt.show()
+        # model and output file
+        model_file = f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}'
+        output_file = f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}_all.pdf"
 
-    plt.plot(
-        BDT_cuts, significance,
-        color='orangered',
-    )
-    plt.xlabel('BDT cut')
-    plt.ylabel(r'Significance')
-    # plt.legend()
-    save_output_as_pdf(f'../Output/significance_BDT_{pt_min}_pt_{pt_max}.pdf')
-    plt.show()
+   
+        # apply_ML_model(model_file, data_file, tree_name='DataTable', output_file='generic_output_file.pdf', pt_cut=(pt_min, pt_max), BDT_cut=0.8)
 
-    plt.figure()
-    signxeff = [x*y for x,y in zip(significance, efficiency)]
-    plt.plot(
-        BDT_cuts, signxeff,
-        color='orangered',
-    )
-    plt.xlabel('BDT cut')
-    plt.ylabel(r'Significance x Efficiency')
-    # plt.legend()
-    save_output_as_pdf(f'../Output/significancexEfficiency_BDT_{pt_min}_pt_{pt_max}.pdf')
-    plt.show()
-    #TODO: missing other steps
+        # TODO: put this part in a function
+        # TODO: add single scripts for efficiency, significance. etc.
+
+
+        BDT_cuts = np.linspace(-15,10,50)
+
+        # calculate efficiency for different BDT values
+
+        # efficiency = get_efficiency(MC_file, model_file, BDT_cuts)
+        # with open(f"../Output/SignEff/efficiency_{pt_min}_pt_{pt_max}.json", 'w') as f:
+        #     json.dump(efficiency, f, indent=2) 
+
+        # print('efficiency saved as:', f"efficiency_{pt_min}_pt_{pt_max}.json")
+
+        with open(f"../Output/SignEff/efficiency_{pt_min}_pt_{pt_max}.json", 'r') as f:
+            efficiency = json.load(f)
+
+
+        # calculate significance for different BDT values
+
+        # significance = get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name='DataTable', pt_cut=(pt_min, pt_max))
+        
+        # with open(f"../Output/SignEff/significance_{pt_min}_pt_{pt_max}.json", 'w') as f:
+        #     json.dump(significance, f, indent=2) 
+
+        # print('significance saved as:', f"significance_{pt_min}_pt_{pt_max}.json")
+
+        with open(f"../Output/SignEff/significance_{pt_min}_pt_{pt_max}.json", 'r') as f:
+            significance = json.load(f)
+        
+        
+        # plot efficency over BDT cut
+        # TODO: find better way(for sure there is a hipe4ml function!)  
+        plt.figure()
+        plt.plot(
+            BDT_cuts, efficiency,
+            # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
+            color='orangered',
+        )
+        plt.xlabel('BDT cut')
+        plt.ylabel(r'Efficiency $\varepsilon $')
+        # plt.legend()
+        # save_output_as_pdf(f'../Output/SignEff/efficiency_BDT_{pt_min}<pt<{pt_max}.pdf')
+        print('Efficiency saved.')
+        # plt.close()
+
+
+        plt.figure()
+        plt.plot(
+            BDT_cuts, significance,
+            color='orangered',
+        )
+        plt.xlabel('BDT cut')
+        plt.ylabel(r'Significance')
+        # plt.legend()
+        # save_output_as_pdf(f'../Output/SignEff/significance_BDT_{pt_min}_pt_{pt_max}.pdf')
+        print('Significance saved.')
+        # plt.close()
+
+        plt.figure()
+        signxeff = [x*y for x,y in zip(significance, efficiency)]
+
+        # with open(f"signxeff_{pt_min}_pt_{pt_max}.json", 'w') as f:
+        #     json.dump(efficiency, f, indent=2) 
+        Best_BDT = BDT_cuts[signxeff.index(max(signxeff))]
+        print(Best_BDT)
+
+        print('SignificancexEfficiency saved as:', f"../Output/SignEff/signxeff{pt_min}_pt_{pt_max}.json")
+        plt.plot(
+            BDT_cuts, signxeff,
+            color='orangered',
+            label=f'Maximum at {Best_BDT}.'
+        )
+        plt.axvline(Best_BDT)
+        plt.xlabel('BDT cut')
+        plt.ylabel(r'Significance x Efficiency')
+        plt.legend()
+        # save_output_as_pdf(f'../Output/SignEff/SignificancexEfficiency_BDT_{pt_min}_pt_{pt_max}.pdf')
+        # plt.close()
+
+        save_output_as_pdf(f'../Output/SignEff/SignEff_output_{pt_min}_pt_{pt_max}.pdf')
+        plt.close('all')
+        print('Done!')

@@ -80,12 +80,12 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
     model_clf = xgb.XGBClassifier()
     model_hdl = ModelHandler(model_clf, features_for_train)
 
-    pt_min = 3
-    pt_max = 4
+    # pt_min = 4
+    # pt_max = 5
 
-    model_file = f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}'
+    # model_file = f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}'
 
-    model_hdl.load_model_handler(model_file)
+    # model_hdl.load_model_handler(model_file)
 
     # define the shape of the model (how deep, how many trees etc.)
     hyper_pars_ranges = {
@@ -98,16 +98,17 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
         'colsample_bytree':(0.5, 0.9),
         }
     
+    # OBACHT: Do not run on alicecerno2 with n_jobs=-1 !!
     # model_hdl.optimize_params_optuna(train_test_data, hyper_pars_ranges, cross_val_scoring='roc_auc',\
-    #                                  timeout=120, n_jobs=-1, n_trials=100, direction='maximize')
+    #                                  timeout=120, n_jobs=8, n_trials=100, direction='maximize')
 
-    # model_hdl.train_test_model(train_test_data)
+    model_hdl.train_test_model(train_test_data)
 
     #saving model
     # model_hdl.dump_model_handler(f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}')
     # print('Model saved as:', f'Hypertriton_model_{pt_min}<pt<{pt_max}')
 
-    
+    print('model has been trained')
     y_pred_train = model_hdl.predict(train_test_data[0], True)
     y_pred_test = model_hdl.predict(train_test_data[2], True)
 
@@ -117,7 +118,7 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
     model_hdl.dump_model_handler(f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}')
     print('Model saved as:', f'Hypertriton_model_{pt_min}<pt<{pt_max}')
 
-    # exit()
+    
 
     #compare trainig and testing set, in case the classifier picked up some features from the training dataset
     plt.rcParams["figure.figsize"] = (10, 7)
@@ -149,7 +150,7 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
 if __name__ == "__main__":
     #specify the pt ranges we want to take a look at
     # pt = [2,3,4,5,6,9]
-    pt = [3,4,5,6,9]
+    pt = [3,4,5,6,7]
 
     for i in range(len(pt)-1):
         # specify which dataset to look at
@@ -186,8 +187,8 @@ if __name__ == "__main__":
         # https://www.researchgate.net/publication/334719549_Highlights_of_the_production_of_anti-hyper-nuclei_and_exotica_with_ALICE_at_the_LHC/download
         # bkgH = bkgH.get_subset(size=170001)
 
-        filename=f"../Output/ML_Hypertriton_output_{pt_min}<pt<{pt_max}.pdf"  
+        filename=f"../Output/ML_Hypertriton_output_{pt_min}_pt_{pt_max}.pdf"  
         
         ML_Hypertriton(dataH, bkgH, promptH, filename, pt_min, pt_max)
-        break
+        
     
