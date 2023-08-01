@@ -10,7 +10,7 @@ from hipe4ml.tree_handler import TreeHandler
 from hipe4ml import plot_utils
 from apply_model import apply_ML_model, save_output_as_pdf
 from HypertritonRestframeBoost import get_df
-import ROOT
+# import ROOT
 
 def signal_and_bkg_fit(m, loc_sig, scale_sig, A_sig, loc_bkg, scale_bkg, A_bkg):
     return  A_sig*stats.norm.pdf(m, loc=loc_sig, scale=scale_sig)+A_bkg*stats.expon.pdf(m, loc=loc_bkg, scale=scale_bkg)
@@ -46,11 +46,61 @@ selected_data_hndl, dataH =  apply_ML_model(model_file, data_file, tree_name=dat
    
 # turn into df
 df = selected_data_hndl.get_data_frame()
-print('Number of selected candidates:', len(df))
-print(df.columns)
+start = np.amin(df["m"])
+stop = np.amax(df["m"])
 
-# plot signal
-plot_utils.plot_distr(
+
+
+#TODO: figure out how to plot bkg/signal
+'''
+# plot selected candidates in hisotgram
+c = ROOT.TCanvas()
+rdf = ROOT.RDataFrame("df", "SelectedDataFrame.root")
+inv_mass = rdf.Histo1D(("InvariantMassHistogram", "3<pt<6; m[GeV]", 100, start, stop),"m")
+inv_mass.Draw()
+c.Draw()
+
+# fit a exponential background an a gaussian signal
+# fit_func = ROOT.TF1("fit_func", "[0]*TMath::Gaus(x, [1], [2]) + [3]*TMath::Exp(x, [4], [5])")
+fit_func = ROOT.TF1("fit_func", "gaus(0) + [3]*expo(4)")
+fit_func.SetParameter(1, 2.993)
+fit_func.SetParameter(2, 0.005)
+fit_func.SetNpx(1000)
+inv_mass.Fit(fit_func)
+pars = fit_func.GetParameters()
+c.Draw()
+
+bkg_func = ROOT.TF1("bkg_func", "[0]*expo(1)")
+bkg_func.SetLineColor(ROOT.kGreen)
+bkg_func.SetNpx(1000)
+bkg_func.Draw("Same")
+bkg_func.SetParameters(pars[0], pars[1], pars[2])
+c.Draw()
+
+signal_func = ROOT.TF1("signal_func", "gaus(0)")
+signal_func.SetLineColor(ROOT.kBlue)
+signal_func.SetNpx(1000)
+signal_func.Draw("Same")
+signal_func.SetParameters(pars[3], pars[4], pars[5])
+c.Draw()
+
+# legend = ROOT.TLegend(0.45, 0.65, 0.73, 0.85)
+# legend.SetTextFont(72)
+# legend.SetTextSize(0.04)
+# legend.AddEntry(inv_mass, "Data", "l")
+# legend.AddEntry(bkg_func, "Background fit", "l")
+# legend.AddEntry(signal_func, "Signal fit", "l")
+# legend.AddEntry(fit_func, "Global Fit", "l")
+# legend.Draw("Same")
+# c.Draw()
+
+c.Print(f"SelectedDataDistribution_{pt_min}_{pt_max}.pdf", "Title: m")
+print("Canvas saved as SelectedDataDistribution.pdf")
+# print('Number of selected candidates:', len(df))
+# print(df.columns)
+'''
+# plot signal (for crosscheck)
+'''plot_utils.plot_distr(
         [selected_data_hndl], 
         column='m', 
         bins=100, 
@@ -62,43 +112,23 @@ plot_utils.plot_distr(
         alpha=0.5,
         )
 plt.show()
-
-
-# Convert data to a dictionary with numpy arrays
-data = {key: df[key].values for key in df.keys()}
-print(data)
-
-rdf = ROOT.RDF.FromNumpy(data)
-rdf.Display().Print()
-
-# save as .root file
-rdf.Snapshot('df', 'SelectedData_{pt_min}_pt_{pt_max}.root')
-
-
-
-# plotting with scipy
 '''
 
-plt.figure()
-bins_m = np.linspace(np.amin(df['m']), np.amax(df['m']), 101)
-count_m, bins_m = np.histogram(df['m'], bins=bins_m)
-centered_bins = (bins_m[:-1] + bins_m[1:]) / 2
+# Alternative method: Convert data to a dictionary with numpy arrays
+# data = {key: df[key].values for key in df.keys()}
+# rdf = ROOT.RDF.FromNumpy(data)
 
-m_Hyp = 2.991
-p0=[m_Hyp, 3*0.0017, 50, 3, 1, 5]
-# p0=StartParamsNorm(df)
-optimizedParameters, pcov = opt.curve_fit(signal_and_bkg_fit, centered_bins, count_m, p0=p0) #TODO:das funktioniert nicht !
+#Alternative method: ROOFit
 
-plt.figure()
-plot_utils.plot_distr(selected_data_hndl, column=['m'], bins=100)
-plt.plot(np.linspace(bins_m[0], bins_m[-1], 100), signal_and_bkg_fit(np.linspace(bins_m[0], bins_m[-1], 100), *optimizedParameters), label='Fit')
-save_output_as_pdf(f'../Output/Distribution_m_{pt_min}_pt_{pt_max}.pdf')
-plt.show()
-plt.close()
+# x = ROOT.RooRealVar("x", "invariantMass", 2.7, 3.1)
+# mean = ROOT.RooReaLVar("mean", "meanOfGaussian", 2.992, 2.9, 3.0)
+# sigma = ROOT.RooRealVar("sigma", "StdOfGaussian", 0.005, 0.001, 0.01)
+# A = ROOT.RooRealVar("")
 
 
-exit()
-'''
+#cut on m?
+# rdf.Filter()#TODO: FILTER EINFÜGEN!
+
 
 # calculate cos theta*
 m_He = 2.80839 #GeV
@@ -111,6 +141,11 @@ print(df_with_cos_theta[:10])
 bins = np.linspace(-1, 1, 6)
 count_data, bins = np.histogram(df_with_cos_theta['cos_theta_beam'], bins=bins)
 
+selected_data_hndl.set_data_frame(df_with_cos_theta)
+selected_data_hndl.write_df_to_root_files("SelectedDataFrame", "df")
+print("df saved to .root file.")
+
+exit()
 plt.stairs(count_data, bins, label=f'Selected Candidates \n {pt_min}<'+r'$p_T$'+f'<{pt_max}', color='orangered')
 plt.ylabel('Counts')
 plt.xlabel(r'$\cos{\theta *}_{beam}$')
