@@ -88,7 +88,7 @@ if __name__ == "__main__":
     bins = np.linspace(-1,1,8)
         
 
-    # plots cos(theta*) distribution
+    # plots cos(theta*) distribution---------------------------------
     c1 = ROOT.TCanvas()
     cos_theta = rdf.Histo1D(("CosThetaHistogram", "cos(theta*)_wrt_beam", 100, -1, 1),"cos_theta_beam")
     cos_theta.Draw()
@@ -96,11 +96,11 @@ if __name__ == "__main__":
     c1.SaveAs("Output.pdf(")
 
 
-    # create plots with signal fit
+    # create plots with signal fit------------------------------------
     for i in range(7):
         CreatePlots(i, "Output.pdf")
 
-    # plot number of Hypertritons
+    # plot number of Hypertritons (raw) --------------------------------------
     with open("./DetectorEfficiency_3_pt_6.json", 'r') as f:
         detector_efficiency = np.array(json.load(f))
 
@@ -112,13 +112,12 @@ if __name__ == "__main__":
 
     gr = ROOT.TGraphErrors(7, centered_bins, np.array(number_of_Hypertritons), np.array([1/7]*7), np.array(errorbars))
     gr.SetFillColor(ROOT.kOrange+6)
-    gr.SetTitle("Number of Hypertritons for 3<p_{T}<6")#, "cos(#theta_{beam})", "Counts")
+    gr.SetTitle("Number of Hypertritons(raw) for 3<p_{T}<6")#, "cos(#theta_{beam})", "Counts")
     gr.GetXaxis().SetTitle("cos(#theta_{beam})")
     gr.GetYaxis().SetTitle("Counts")
     gr.GetYaxis().SetRangeUser(0,400)
     # gr.SetMarkerColor(4)
     # gr.SetMarkerStyle(21)
-
 
     ROOT.gStyle.SetBarWidth(1.17)
     ROOT.gStyle.SetTitleFontSize(0.045)
@@ -128,8 +127,8 @@ if __name__ == "__main__":
     c_Eff.Draw()
     c_Eff.SaveAs("Output.pdf")
 
-    #----------------------------------
-    # plot efficiencies
+    #´draw pt distr -------------------------------------------
+
     pt_min = 3
     pt_max = 6
 
@@ -142,6 +141,87 @@ if __name__ == "__main__":
     # NOTE: here the and must be used otherwise it will be interpreted wrong!!
     rdf_gen_cut = rdf_gen.Filter(f"{pt_min} < pt and pt < {pt_max}")
     rdf_reco_cut = rdf_reco.Filter(f"{pt_min} < pt and pt < {pt_max} ")
+
+    pthistgen = rdf_gen_cut.Histo1D(("ptHistogram", "3<p_{T}<6; p_{T}[GeV]", 30, 3, 6),"pt")
+    pthistreco = rdf_reco_cut.Histo1D(("ptHistogram", "3<p_{T}<6; p_{T}[GeV]", 30, 3, 6),"pt")
+
+    # draw pt distr
+    pthistgen.SetFillColor(ROOT.kBlue-10)
+    pthistreco.SetFillColor(ROOT.kRed-10)
+    # pthistgen.SetFillStyle(3001)
+    # pthistreco.SetFillStyle(3001)
+    pthistgen.Draw("HIST")
+    pthistreco.Draw("Same HIST")
+    ROOT.gStyle.SetOptStat(0)
+
+    legend3 = ROOT.TLegend(.7, .7, .85, .85)
+    legend3.SetBorderSize(0)
+    legend3.AddEntry(pthistgen.GetPtr(), "generated", "f")
+    legend3.AddEntry(pthistreco.GetPtr(), "reconstruced", "f")
+
+    legend3.SetTextSize(0.025)
+    legend3.Draw()
+
+    pt_distr.RedrawAxis()
+    pt_distr.Draw()
+    pt_distr.SaveAs("Output.pdf")
+    
+    #plot efficiency -------------------------------------------
+    histgen = rdf_gen_cut.Histo1D(("cosThetaHistogram", "3<p_{T}<6; cos(#theta_{beam})", 7, -1, 1),"cos_theta_beam")
+    histreco = rdf_reco_cut.Histo1D(("cosThetaHistogram", "3<p_{T}<6; cos(#theta_{beam})", 7, -1, 1),"cos_theta_beam")
+    histgen.SetFillColor(ROOT.kBlue-10)
+    histreco.SetFillColor(ROOT.kRed-10)
+    histgen.Draw("hist")
+    histreco.Draw("Same hist")
+    histreco.SetDefaultSumw2()
+    histgen.GetYaxis().SetRangeUser(0,400000)
+
+    pt_distr.Draw()
+    pt_distr.SaveAs("Output.pdf")
+
+    d = ROOT.TCanvas()
+    efficiency = histreco.Clone()
+    efficiency.Sumw2()
+    efficiency.Divide(histreco.GetPtr(), histgen.GetPtr(), 1, 1, "B")
+    efficiency.Draw("E")
+    efficiency.GetYaxis().SetTitle("Efficiency")
+    # efficiency.GetYaxis().SetRangeUser(0.2, 0.8)
+    d.Draw()
+    d.SaveAs("Output.pdf")
+
+    count = [efficiency.GetBinContent(i) for i in range(1,8,1)]
+    eff_err = [efficiency.GetBinError(i) for i in range(1,8,1)]
+
+
+    #plot number of Hypertritons (corrected)--------------------
+    yerr = [np.sqrt((errorbars[i]/count[i])**2+((number_of_Hypertritons[i]*eff_err[i])/count[i]**2)**2) for i in range(7)]
+
+    with open("./DetectorEfficiency_3_pt_6.json", 'r') as f:
+        detector_efficiency = np.array(json.load(f))
+
+    c_Eff = ROOT.TCanvas()
+    centered_bins = (bins[:-1] + bins[1:]) / 2
+
+
+    gr = ROOT.TGraphErrors(7, centered_bins, np.array(number_of_Hypertritons)/np.array(count),\
+                        np.array([1/7]*7), np.array(yerr))
+    gr.SetFillColor(ROOT.kOrange+6)
+    gr.SetTitle("Number of Hypertritons(corrected) for 3<p_{T}<6")#, "cos(#theta_{beam})", "Counts")
+    gr.GetXaxis().SetTitle("cos(#theta_{beam})")
+    gr.GetYaxis().SetTitle("Counts")
+    gr.GetYaxis().SetRangeUser(0,400)
+
+    ROOT.gStyle.SetBarWidth(1.17)
+    ROOT.gStyle.SetTitleFontSize(0.045)
+
+    gr.Draw("ABZ")
+
+    c_Eff.Draw()
+    c_Eff.SaveAs("Output.pdf")
+
+    # plot efficiencies for different pt ranges-------------------------
+
+
 
 
     with open("./DetectorEfficiency_3_pt_4.json", 'r') as f:
@@ -199,27 +279,4 @@ if __name__ == "__main__":
     c_Eff_2.SetGrid()
 
     c_Eff_2.Draw()
-    c_Eff_2.SaveAs("Output.pdf")
-
-    #--------------------------------------
-
-    c_Eff_3 = ROOT.TCanvas()
-
-
-    gr = ROOT.TGraphErrors(7, centered_bins, np.array(number_of_Hypertritons)/detector_efficiency, np.array([1/7]*7), np.array(errorbars)/detector_efficiency)
-    gr.SetFillColor(ROOT.kOrange+6)
-    gr.SetTitle("Number of Hypertritons(corrected) for 3<p_{T}<6")#, "cos(#theta_{beam})", "Counts")
-    gr.GetXaxis().SetTitle("cos(#theta_{beam})")
-    gr.GetYaxis().SetTitle("Counts")
-    gr.GetYaxis().SetRangeUser(0,400)
-    # gr.SetMarkerColor(4)
-    # gr.SetMarkerStyle(21)
-
-
-    ROOT.gStyle.SetBarWidth(1.17)
-    ROOT.gStyle.SetTitleFontSize(0.045)
-
-    gr.Draw("ABZ")
-
-    c_Eff_3.Draw()
-    c_Eff_3.SaveAs("Output.pdf)")
+    c_Eff_2.SaveAs("Output.pdf)")
