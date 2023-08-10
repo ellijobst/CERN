@@ -149,8 +149,7 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
 
 if __name__ == "__main__":
     #specify the pt ranges we want to take a look at
-    # pt = [2,3,4,5,6,9]
-    pt = [3,6]
+    pt = [2,3,4,5,6,9]
 
     for i in range(len(pt)-1):
         # specify which dataset to look at
