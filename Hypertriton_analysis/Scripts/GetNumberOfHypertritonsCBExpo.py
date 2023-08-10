@@ -2,7 +2,6 @@
 import ROOT
 import numpy as np
 
-
 # matter?
 matter = "true"
 
@@ -14,6 +13,12 @@ nbins = 7
 
 #centrality cut
 cmin = 5
+
+#pt cut
+pt_min = 3
+pt_max = 6
+
+#---------------------------------------------------------------------------------------------
 
 #parameters from Fitting MCs with RooCrystalBall
 alphal_list = [1.0934362994652145, 1.0900882142873485, 1.0706783250711687, 1.0503904659486067, 1.0694921673717623, 1.0804801324260698, 1.0645525927572417] 
@@ -45,7 +50,7 @@ def CreatePlots(i):
 
     # create histogram
     inv_mass_df = rdf.Filter(f"{bins[i]} < cos_theta_beam and cos_theta_beam < {bins[i+1]} and Matter == {matter}  and centrality > {cmin} ")
-    inv_mass = inv_mass_df.Histo1D(("InvariantMassHistogram", "3<p_{T}<6,  "+f"{str(bins[i])[:5]}"+"< cos(#theta_{beam})<"+f"{str(bins[i+1])[:5]}; m[GeV]", 80, 2.96, 3.04),"m")
+    inv_mass = inv_mass_df.Histo1D(("InvariantMassHistogram", f"{pt_min}"+"<p_{T}<"+f"{pt_max}, {str(bins[i])[:5]}"+"< cos(#theta_{beam})<"+f"{str(bins[i+1])[:5]}; m[GeV]", 80, 2.96, 3.04),"m")
     inv_mass_copy = inv_mass.Clone()
     
     # get RooDataHist
@@ -68,7 +73,7 @@ def CreatePlots(i):
     legend = ROOT.TLegend(.12, .8, .49, .935)
     legend.SetBorderSize(1)
     legend.AddEntry(dh, "Data", "le")
-    legend
+
     # fit_func.SetLineColor(ROOT.kRed)
     legend.AddEntry(fit_func, "Fit = Signal + Background", "l").SetLineColor(ROOT.kRed)
     legend.AddEntry(expo, "Background = (1-a)*exp(x #lambda))", "l").SetLineColor(ROOT.kGreen+1)
@@ -126,28 +131,19 @@ if __name__ == "__main__":
     # define variables
     # NOTE: we dont need amplitudes just a fraction since this is pdfs
     m = ROOT.RooRealVar("m", "m [GeV]", 2.96, 3.04)
-    m0 = ROOT.RooRealVar("m0", "m0", 2.992,  2.990, 2.994)
-#     sigma = ROOT.RooRealVar("sigma", "sigma", 0.002,  0.001, 0.003)
-    sigma = ROOT.RooRealVar("sigma", "sigma", 0.001,  0.0001, 0.002)
-    
-#     alphal = ROOT.RooRealVar("alphal", "alpha L", 1.34, 1.3, 1.5)
-#     nl = ROOT.RooRealVar("nl", "n L", 7,  5.3, 7.3)
-#     alphar = ROOT.RooRealVar("alphar", "alpha right", 1.38, 1.35, 1.5)
-#     nr = ROOT.RooRealVar("nr", "n right", 4.3, 3.9 , 6.5)
-    
-    frac = ROOT.RooRealVar("frac", "fraction", 0.5, 0, 1)
-    lam = ROOT.RooRealVar("Lambda", "slope of expo", -7, -50, 0)
+    m0 = ROOT.RooRealVar("m0", "m0", 2.992,  2.990, 2.994) #mean of CB
+    sigma = ROOT.RooRealVar("sigma", "sigma", 0.001,  0.0001, 0.002) #standard deviation of CB
+    frac = ROOT.RooRealVar("frac", "fraction", 0.5, 0, 1) #ratio between Signal and Bkg
+    lam = ROOT.RooRealVar("Lambda", "slope of expo", -7, -50, 0) #parameter for the exponential
     
     
-
-
     # define pdf model
-    # this looks like this: a*CrystalBall+(1-a)*exponential, where a is the frac parameter
+    # it looks like this: a*CrystalBall+(1-a)*exponential, where a is the frac parameter
     # see: https://root.cern.ch/doc/master/classRooAddPdf.html 
 
     
     # import data
-    rdf = ROOT.RDataFrame("df", "SelectedDataFrame_3_pt_6.root")
+    rdf = ROOT.RDataFrame("df", f"SelectedDataFrame_{pt_min}_pt_{pt_max}.root")
 
     # i goes from 0 to 6, since there are 7 bins
     bins = np.linspace(-1,1,nbins+1)
@@ -167,21 +163,16 @@ if __name__ == "__main__":
     errorbars = [results[i][1] for i in range(nbins)]
 
     # plot number of Hypertritons (raw) -------------------------------------------
-    
     c_Eff = ROOT.TCanvas()
     centered_bins = (bins[:-1] + bins[1:]) / 2
 
-
     gr = ROOT.TGraphErrors(nbins, centered_bins, np.array(number_of_Hypertritons), np.array([1/nbins]*nbins), np.array(errorbars))
-#     gr.SetFillColor(ROOT.kOrange+6)
-    gr.SetTitle("Number of Hypertritons(raw) for 3<p_{T}<6")#, "cos(#theta_{beam})", "Counts")
+
+    gr.SetTitle(f"Number of Hypertritons(raw) for {pt_min}"+"<p_{T}<"+f"{pt_max}")
     gr.GetXaxis().SetTitle("cos(#theta_{beam})")
     gr.GetYaxis().SetTitle("Counts")
     gr.GetYaxis().SetRangeUser(0,150)
-    # gr.SetMarkerColor(4)
-    # gr.SetMarkerStyle(21)
 
-#     ROOT.gStyle.SetBarWidth(1.17)
     ROOT.gStyle.SetTitleFontSize(0.045)
 
     gr.Draw("AP")
@@ -191,8 +182,6 @@ if __name__ == "__main__":
 
     # draw pt distr ---------------------------------------------------------------
 
-    pt_min = 3
-    pt_max = 6
     
     matter2 = 0.0
     if matter == "true":
@@ -200,6 +189,7 @@ if __name__ == "__main__":
     
 
     # load the files that have been created with HypertritonRestframeBoost.py
+    # since they are too big, we actually use the same files but just read in some of the columns: pt, Matter, Centrality, cos(theta*) wrt beam
     rdf_gen = ROOT.RDF.FromCSV("generatedHypertritons_cut.csv")
     rdf_reco = ROOT.RDF.FromCSV("reconstructedHypertritons_cut.csv")
     print(rdf_gen.GetColumnNames())
@@ -210,10 +200,9 @@ if __name__ == "__main__":
     rdf_gen_cut = rdf_gen.Filter(f"{pt_min} < pt and pt < {pt_max} and Matter == {matter2} and Centrality > {cmin}")
     rdf_reco_cut = rdf_reco.Filter(f"{pt_min} < pt and pt < {pt_max} and Matter == {matter2} and Centrality > {cmin}")
 
-    pthistgen = rdf_gen_cut.Histo1D(("ptHistogram", "p_{T} Distribution for 3<p_{T}<6; p_{T}[GeV]", 30, 3, 6),"pt")
-    pthistreco = rdf_reco_cut.Histo1D(("ptHistogram", "p_{T} Distribution for 3<p_{T}<6; p_{T}[GeV]", 30, 3, 6),"pt")
+    pthistgen = rdf_gen_cut.Histo1D(("ptHistogram", "p_{T} Distribution for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}"+"; p_{T}[GeV]", 30, pt_min, pt_max),"pt")
+    pthistreco = rdf_reco_cut.Histo1D(("ptHistogram", "p_{T} Distribution for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}"+"; p_{T}[GeV]", 30, pt_min, pt_max),"pt")
 
-   
     pthistgen.SetFillColor(ROOT.kBlue-10)
     pthistreco.SetFillColor(ROOT.kRed-10)
     pthistgen.Draw("HIST")
@@ -233,24 +222,26 @@ if __name__ == "__main__":
     pt_distr.SaveAs(f"{Output}.pdf")
     
     #plot efficiency for whole pt range -------------------------------------------
-    histgen = rdf_gen_cut.Histo1D(("cosThetaHistogram", "Cos(#theta_{beam}) Distribution for 3<p_{T}<6; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
-    histreco = rdf_reco_cut.Histo1D(("cosThetaHistogram", "Cos(#theta_{beam}) Distribution for 3<p_{T}<6; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
+    histgen = rdf_gen_cut.Histo1D(("cosThetaHistogram", "Cos(#theta_{beam}) Distribution for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}"+"; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
+    histreco = rdf_reco_cut.Histo1D(("cosThetaHistogram", "Cos(#theta_{beam}) Distribution for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}"+"; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
+
     histgen.SetFillColor(ROOT.kBlue-10)
     histreco.SetFillColor(ROOT.kRed-10)
     histgen.Draw("hist")
     histreco.Draw("Same hist")
-#     histreco.SetDefaultSumw2()
+
     histgen.GetYaxis().SetRangeUser(0,250000)
 
     pt_distr.Draw()
     pt_distr.SaveAs(f"{Output}.pdf")
 
+    # calulate detector efficiency
     d = ROOT.TCanvas()
     efficiency = histreco.Clone()
-#     efficiency.Sumw2()
+
     efficiency.Divide(histreco.GetPtr(), histgen.GetPtr(), 1, 1, "B")
     efficiency.Draw("E")
-    efficiency.SetTitle("Detector Efficiency for 3<p_{T}<6")
+    efficiency.SetTitle("Detector Efficiency for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}")
     efficiency.GetYaxis().SetTitle("Efficiency")
     efficiency.GetYaxis().SetRangeUser(0.2, 0.8)
     d.Draw()
@@ -270,13 +261,13 @@ if __name__ == "__main__":
 
     gr = ROOT.TGraphErrors(nbins, centered_bins, np.array(number_of_Hypertritons)/np.array(count),\
                         np.array([1/nbins]*nbins), np.array(yerr))
-#     gr.SetFillColor(ROOT.kOrange+6)
-    gr.SetTitle("Number of Hypertritons(corrected) for 3<p_{T}<6")#, "cos(#theta_{beam})", "Counts")
+
+    gr.SetTitle("Number of Hypertritons(corrected) for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}")
     gr.GetXaxis().SetTitle("cos(#theta_{beam})")
     gr.GetYaxis().SetTitle("Counts")
     gr.GetYaxis().SetRangeUser(0,300)
 
-#     ROOT.gStyle.SetBarWidth(1.17)
+
     ROOT.gStyle.SetTitleFontSize(0.045)
 
     gr.Draw("AP")
@@ -297,13 +288,10 @@ if __name__ == "__main__":
     rdf_gen_cut_36 = rdf_gen.Filter(f"3 < pt and pt < 6")
     rdf_reco_cut_36 = rdf_reco.Filter(f"3 < pt and pt < 6")
 
-
     histgen34 = rdf_gen_cut_34.Histo1D(("cosThetaHistogram", "Detector Efficiencies for different p_{T} ranges; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
     histreco34 = rdf_reco_cut_34.Histo1D(("cosThetaHistogram", "Detector Efficiencies for different p_{T} ranges; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
-#     histreco34.SetDefaultSumw2()
 
     efficiency34 = histreco34.Clone()
-#     efficiency34.Sumw2()
     efficiency34.Divide(histreco34.GetPtr(), histgen34.GetPtr(), 1, 1, "B")
     efficiency34.SetTitle("Detector Efficiency for different p_{T} ranges.")
     efficiency34.SetLineColor(9)
@@ -312,30 +300,24 @@ if __name__ == "__main__":
 
     histgen45 = rdf_gen_cut_45.Histo1D(("cosThetaHistogram", "Detector Efficiencies for different p_{T} ranges; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
     histreco45 = rdf_reco_cut_45.Histo1D(("cosThetaHistogram", "Detector Efficiencies for different p_{T} ranges; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
-#     histreco45.SetDefaultSumw2()
 
     efficiency45 = histreco45.Clone()
-#     efficiency45.Sumw2()
     efficiency45.Divide(histreco45.GetPtr(), histgen45.GetPtr(), 1, 1, "B")
     efficiency45.Draw("Same E")
     efficiency45.SetLineColor(8)
 
     histgen56 = rdf_gen_cut_56.Histo1D(("cosThetaHistogram", "Detector Efficiencies for different p_{T} ranges; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
     histreco56 = rdf_reco_cut_56.Histo1D(("cosThetaHistogram", "Detector Efficiencies for different p_{T} ranges; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
-#     histreco56.SetDefaultSumw2()
 
     efficiency56 = histreco45.Clone()
-#     efficiency56.Sumw2()
     efficiency56.Divide(histreco56.GetPtr(), histgen56.GetPtr(), 1, 1, "B")
     efficiency56.Draw("Same E")
     efficiency56.SetLineColor(6)
 
     histgen36 = rdf_gen_cut_36.Histo1D(("cosThetaHistogram", "Detector Efficiencies for different p_{T} ranges; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
     histreco36 = rdf_reco_cut_36.Histo1D(("cosThetaHistogram", "Detector Efficiencies for different p_{T} ranges; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
-#     histreco36.SetDefaultSumw2()
 
     efficiency36 = histreco36.Clone()
-#     efficiency36.Sumw2()
     efficiency36.Divide(histreco36.GetPtr(), histgen36.GetPtr(), 1, 1, "B")
     efficiency36.Draw("Same E")
     efficiency36.SetLineColor(1)
