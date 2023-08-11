@@ -1,11 +1,26 @@
 import ROOT
 import numpy as np
+import json
 
+#-------------SETTINGS------------------
 # matter?
-matter = "true"
+matter = "false"
 
 #output file
-Output= "OutputRooFitCB_matter"
+Output= "./Output/RooFitCB2pt6_AM"
+
+#pt cuts
+pt_min = 2
+pt_max = 6
+
+
+print("------------SETTINGS---------------")
+print(f" matter = {matter}")
+print(f"{pt_min}<pt<{pt_max}")
+print("------------------------------------")
+
+
+#--------------FUNCTIONS--------------
 
 def CreatePlots(i):
     # create canvas
@@ -17,7 +32,7 @@ def CreatePlots(i):
 
     # create histogram
     inv_mass_df = rdf.Filter(f"{bins[i]} < cos_theta_beam and cos_theta_beam < {bins[i+1]} and Matter == {matter} ")
-    inv_mass = inv_mass_df.Histo1D(("InvariantMassHistogram", "3<p_{T}<6,  "+f"{str(bins[i])[:5]}"+"< cos(#theta_{beam})<"+f"{str(bins[i+1])[:5]}; m[GeV]", 80, 2.96, 3.04),"m")
+    inv_mass = inv_mass_df.Histo1D(("InvariantMassHistogram", f"{pt_min}"+"<p_{T}<"+f"{pt_max}, {str(bins[i])[:5]}"+"< cos(#theta_{beam})<"+f"{str(bins[i+1])[:5]}; m[GeV]", 80, 2.96, 3.04),"m")
     inv_mass_copy = inv_mass.Clone()
     
     # get RooDataHist
@@ -86,8 +101,11 @@ def CreatePlots(i):
 #     return Nhyp, error
     return nl.getVal(), nr.getVal(), alphal.getVal(), alphar.getVal(), nl.getError(), nr.getError(), alphal.getError(), alphar.getError()
 
-
+#--------------CODE-----------------------
 if __name__ == "__main__":
+    print(f"{pt_min}<pt<{pt_max}")
+    
+    
     # define variables
     # NOTE: we dont need amplitudes just a fraction since this is pdfs
     m = ROOT.RooRealVar("m", "m [GeV]", 2.96, 3.04)
@@ -118,7 +136,7 @@ if __name__ == "__main__":
     fit_func_2 = ROOT.RooCBShape("fit_func2", "crystal ball shape", m, m0, sigma, alpha, n)
 
     # import data
-    rdf = ROOT.RDataFrame("df", "SelectedDataFrameMC_3_pt_6.root")
+    rdf = ROOT.RDataFrame("df", f"./SelectedDataFrames/SelectedDataFrameMC_{pt_min}_pt_{pt_max}.root")
 
     # i goes from 0 to 6, since there are 7 bins
     bins = np.linspace(-1,1,8)
@@ -134,6 +152,8 @@ if __name__ == "__main__":
 
     # create plots with signal fit-------------------------------------------------
     results = [CreatePlots(i) for i in range(7)]
+    
+    print(results)
     nl = [results[i][0] for i in range(len(results))]
     nr = [results[i][1] for i in range(len(results))]
     alphal = [results[i][2] for i in range(len(results))]
@@ -144,10 +164,20 @@ if __name__ == "__main__":
     alphal_err = [results[i][6] for i in range(len(results))]
     alphar_err = [results[i][7] for i in range(len(results))]
     
-    print(alphal, alphar, nl, nr, alphal_err, alphar_err, nl_err, nr_err)
+#     print(alphal, alphar, nl, nr, alphal_err, alphar_err, nl_err, nr_err) 
+#ACHTUNG hier war die reihenfolge anders!
 #     number_of_Hypertritons = [results[i][0] for i in range(7)]
 #     errorbars = [results[i][1] for i in range(7)]
+    if matter == "true":
+        matter3 = "M"
+    elif matter == "false":
+        matter3 = "AM"
+    with open(f"FixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'w') as f:
+        json.dump(results, f, indent=2) 
 
+    print("results saved.")
+
+    
         
     c4 = ROOT.TCanvas()
     centered_bins = (bins[:-1] + bins[1:]) / 2
@@ -203,4 +233,6 @@ if __name__ == "__main__":
     legend5.Draw()
     
     c5.SaveAs(f"{Output}.pdf)")
-
+    
+    
+    exit()
