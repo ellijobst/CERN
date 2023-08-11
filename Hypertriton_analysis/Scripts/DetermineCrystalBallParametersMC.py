@@ -54,10 +54,7 @@ def CreatePlots(i):
     legend = ROOT.TLegend(.12, .8, .49, .935)
     legend.SetBorderSize(1)
     legend.AddEntry(dh, "Data", "le")
-    legend
-    # fit_func.SetLineColor(ROOT.kRed)
     legend.AddEntry(fit_func, "Fit Crystal Ball Shape", "l").SetLineColor(ROOT.kRed)
-   
 
     legend.SetTextSize(0.025)
     
@@ -81,8 +78,6 @@ def CreatePlots(i):
     pave2.SetFillColor(ROOT.kWhite)
     pave2.SetTextFont(42)
     
-#     Nhyp = inv_mass.GetEntries()*frac.getVal()
-#     error = inv_mass.GetEntries()*frac.getError()
     
     mframe.Draw()
     mframe.GetYaxis().SetRangeUser(0,20000)
@@ -91,11 +86,9 @@ def CreatePlots(i):
     pave.Draw("same")
     pave2.Draw("same")
     
-#     c1.SetLogy()
+
     c1.Draw()
-#     if i != 6:
-#         c1.SaveAs(f"{Output}.pdf")
-#     else:
+
     c1.SaveAs(f"{Output}.pdf")
     
 #     return Nhyp, error
@@ -109,20 +102,9 @@ if __name__ == "__main__":
     # define variables
     # NOTE: we dont need amplitudes just a fraction since this is pdfs
     m = ROOT.RooRealVar("m", "m [GeV]", 2.96, 3.04)
-    m0 = ROOT.RooRealVar("m0", "m0", 2.992,  2.990, 2.994)
-    sigma = ROOT.RooRealVar("sigma", "sigma", 0.001,  0.0001, 0.0015)
-#     alphal = ROOT.RooRealVar("alphal", "alpha L", 2.05,1.7, 2.1)
-#     nl = ROOT.RooRealVar("nl", "n L", 4.7,  3.9, 5)
-#     # alphar = ROOT.RooRealVar("alphar", "alpha right", 2.08, 2.04, 2.2)
-#     alphar = ROOT.RooRealVar("alphar", "alpha right", 2.08, 1.8, 2.2)
-#     nr = ROOT.RooRealVar("nr", "n right", 3.7,3 , 4)
-    alpha = ROOT.RooRealVar("alpha", "alpha", 2.05, 1.9, 2.1)
-    n = ROOT.RooRealVar("n", "n", 2, 1, 4)
+    m0 = ROOT.RooRealVar("m0", "mean of CB", 2.992,  2.990, 2.994)
+    sigma = ROOT.RooRealVar("sigma", "sigma of CB", 0.001,  0.0001, 0.0015)
 
-#     alphal = ROOT.RooRealVar("alphal", "alpha L", 2.05,1, 2.1)
-#     nl = ROOT.RooRealVar("nl", "n L", 4.7,  3.9, 5)
-#     alphar = ROOT.RooRealVar("alphar", "alpha right", 2.08, 1, 2.2)
-#     nr = ROOT.RooRealVar("nr", "n right", 3.7, 2.9 , 4)
     
     alphal = ROOT.RooRealVar("alphal", "alpha L", 2.05,1, 2.1)
     nl = ROOT.RooRealVar("nl", "n L", 4.7,  3.9, 7.2)
@@ -132,8 +114,8 @@ if __name__ == "__main__":
 
     # define pdf model
     fit_func = ROOT.RooCrystalBall("fit_func", "Crystal Ball PDF", m, m0, sigma, alphal, nl, alphar, nr)
-    gaus = ROOT.RooGaussian("gaus", "gaus PDF", m, m0, sigma)
-    fit_func_2 = ROOT.RooCBShape("fit_func2", "crystal ball shape", m, m0, sigma, alpha, n)
+    # gaus = ROOT.RooGaussian("gaus", "gaus PDF", m, m0, sigma)
+
 
     # import data
     rdf = ROOT.RDataFrame("df", f"./SelectedDataFrames/SelectedDataFrameMC_{pt_min}_pt_{pt_max}.root")
@@ -164,10 +146,7 @@ if __name__ == "__main__":
     alphal_err = [results[i][6] for i in range(len(results))]
     alphar_err = [results[i][7] for i in range(len(results))]
     
-#     print(alphal, alphar, nl, nr, alphal_err, alphar_err, nl_err, nr_err) 
-#ACHTUNG hier war die reihenfolge anders!
-#     number_of_Hypertritons = [results[i][0] for i in range(7)]
-#     errorbars = [results[i][1] for i in range(7)]
+
     if matter == "true":
         matter3 = "M"
     elif matter == "false":
