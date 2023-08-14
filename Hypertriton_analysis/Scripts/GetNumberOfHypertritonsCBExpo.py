@@ -1,35 +1,55 @@
-#!/usr/bin/python3
 import ROOT
 import numpy as np
+import json
 
 # matter?
 matter = "true"
-
-#output file
-Output= "OutputRooFitCBExpo_Centrality5_matter"
 
 #number of bins
 nbins = 7
 
 #centrality cut
-cmin = 5
+cmin = 0
 
 #pt cut
 pt_min = 3
 pt_max = 6
 
+
+#output file: Method, PDF Form, pT range,centrality cut matter?
+Output= f"./Output/RooFitCBExpo{pt_min}pt{pt_max}centr{cmin}_M"
+
+
+print("------------SETTINGS---------------")
+print(f"  Matter:             {matter}")
+print(f"  Selected pT range:  {pt_min}<pt<{pt_max}")
+print(f"  Centrality Cut:     centrality > {cmin}")
+print(f"  Number of bins:     {nbins}")
+print(f"  Event Plane Cut: -- ")
+print("------------------------------------")
+
 #---------------------------------------------------------------------------------------------
-
 #parameters from Fitting MCs with RooCrystalBall
-alphal_list = [1.0934362994652145, 1.0900882142873485, 1.0706783250711687, 1.0503904659486067, 1.0694921673717623, 1.0804801324260698, 1.0645525927572417] 
-alphar_list = [1.0905057366836912, 1.0667268240243128, 1.0815374808537768, 1.0795336199958752, 1.0692977107871622, 1.0668680112873683, 1.070138196158257]
-nl_list = [7.19999994494642, 7.199999999623881, 7.199999999930087, 7.199999906061406, 7.199999999472402, 7.19999999991391, 7.199999996812842]
-nr_list = [6.49999942142232, 6.499999967715629, 5.742491410697591, 5.6231862669137005, 6.089912979227799, 6.3847219772037676, 6.499999943719668]
-alphal_err = [0.020641515765816076, 0.012252960894740261, 0.010806621461442845, 0.009871337227371213, 0.010386485859963823, 0.011476725554046663, 0.014109239168038967]
-alphar_err = [0.017067603485467875, 0.010324630197797391, 0.012599634360413559, 0.012200662614301638, 0.012390368009853603, 0.012233855868413523, 0.013210060959648495] 
-nl_err = [0.019420643250831482, 0.0251393406826117, 0.03757409382547827, 0.03755224378744337, 0.041596981438866365, 0.02569665681696609, 0.017221032761371546]
-nr_err = [0.024774752515299703, 0.09133076430223763, 0.19817764569228657, 0.19200076221622853, 0.22377202890522163, 0.22773748048931086, 0.024721254398261117]
 
+if matter == "true":
+        matter3 = "M"
+elif matter == "false":
+        matter3 = "AM"
+with open(f"./CBFixedMCParameters/FixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'r') as f:
+        results = json.load(f)
+        
+nl_list = [results[i][0] for i in range(len(results))]
+nr_list = [results[i][1] for i in range(len(results))]
+alphal_list = [results[i][2] for i in range(len(results))]
+alphar_list = [results[i][3] for i in range(len(results))]
+
+nl_err = [results[i][4] for i in range(len(results))]
+nr_err = [results[i][5] for i in range(len(results))]
+alphal_err = [results[i][6] for i in range(len(results))]
+alphar_err = [results[i][7] for i in range(len(results))]
+
+
+#------------------------------------------------------------------------------------
 def CreatePlots(i):
     # fix parameters based on MCS
     alphal = ROOT.RooRealVar("alphal", "alpha L", alphal_list[i], alphal_list[i], alphal_list[i])
@@ -125,7 +145,6 @@ def CreatePlots(i):
 
 if __name__ == "__main__":
     
-
     
     #----------------------------------------------------------------------------------------
     # define variables
@@ -143,7 +162,7 @@ if __name__ == "__main__":
 
     
     # import data
-    rdf = ROOT.RDataFrame("df", f"SelectedDataFrame_{pt_min}_pt_{pt_max}.root")
+    rdf = ROOT.RDataFrame("df", f"./SelectedDataFrames/SelectedDataFrame_{pt_min}_pt_{pt_max}.root")
 
     # i goes from 0 to 6, since there are 7 bins
     bins = np.linspace(-1,1,nbins+1)
@@ -165,17 +184,19 @@ if __name__ == "__main__":
     # plot number of Hypertritons (raw) -------------------------------------------
     c_Eff = ROOT.TCanvas()
     centered_bins = (bins[:-1] + bins[1:]) / 2
+    
+    
+    h_raw = ROOT.TH1D("hist", f"Number of Hypertritons(raw) for {pt_min}"+"<p_{T}<"+f"{pt_max}; cos(#theta*) wrt beam", 7, -1, 1)
+    h_raw.FillN(7, np.array(centered_bins), np.array(number_of_Hypertritons) )
+    for i in range(1,8,1):
+        h_raw.SetBinError(i, errorbars[i-1])
 
-    gr = ROOT.TGraphErrors(nbins, centered_bins, np.array(number_of_Hypertritons), np.array([1/nbins]*nbins), np.array(errorbars))
-
-    gr.SetTitle(f"Number of Hypertritons(raw) for {pt_min}"+"<p_{T}<"+f"{pt_max}")
-    gr.GetXaxis().SetTitle("cos(#theta_{beam})")
-    gr.GetYaxis().SetTitle("Counts")
-    gr.GetYaxis().SetRangeUser(0,150)
+    h_raw.GetYaxis().SetTitle("Counts per bin")
+#     h_raw.GetYaxis().SetRangeUser(0,150)
 
     ROOT.gStyle.SetTitleFontSize(0.045)
 
-    gr.Draw("AP")
+    h_raw.Draw()
 
     c_Eff.Draw()
     c_Eff.SaveAs(f"{Output}.pdf")
@@ -257,20 +278,32 @@ if __name__ == "__main__":
 
     c_Eff = ROOT.TCanvas()
     centered_bins = (bins[:-1] + bins[1:]) / 2
+    # TODO
+    h_cor = ROOT.TH1D("hist", "Number of Hypertritons(corrected) for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max};"+" cos(#theta_{beam})", 7, -1, 1)
+    
+    h_cor.FillN(7, np.array(centered_bins), np.array(number_of_Hypertritons)/np.array(count) )
+    for i in range(1,8,1):
+        h_cor.SetBinError(i, yerr[i-1])
 
-
-    gr = ROOT.TGraphErrors(nbins, centered_bins, np.array(number_of_Hypertritons)/np.array(count),\
-                        np.array([1/nbins]*nbins), np.array(yerr))
-
-    gr.SetTitle("Number of Hypertritons(corrected) for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}")
-    gr.GetXaxis().SetTitle("cos(#theta_{beam})")
-    gr.GetYaxis().SetTitle("Counts")
-    gr.GetYaxis().SetRangeUser(0,300)
-
+    h_cor.GetYaxis().SetTitle("Counts per bin")
+#     h_cor.GetYaxis().SetRangeUser(0,300)
 
     ROOT.gStyle.SetTitleFontSize(0.045)
 
-    gr.Draw("AP")
+    h_cor.Draw()
+
+    
+    #save number of hypertritons after correction in file
+    Nhyp_corrected = np.array(number_of_Hypertritons)/np.array(count)
+    Nhyp_corrected = Nhyp_corrected.tolist()
+    with open(f"NhypCorrected{pt_min}pt{pt_max}centr{cmin}_{matter3}.json", 'w') as f:
+        json.dump(Nhyp_corrected, f, indent=2) 
+    with open(f"NhypCorrectedErr{pt_min}pt{pt_max}centr{cmin}_{matter3}.json", 'w') as f:
+        json.dump(yerr, f, indent=2) 
+        
+    ROOT.gStyle.SetTitleFontSize(0.045)
+
+    h_cor.Draw()
 
     c_Eff.Draw()
     c_Eff.SaveAs(f"{Output}.pdf")
