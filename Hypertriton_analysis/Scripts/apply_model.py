@@ -125,7 +125,7 @@ def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cu
 
     return [selected_data_hndl, dataH]
 
-def calculate_efficiency(model_file, MC_file, BDT_cut, generatedH, recoH, output):
+def calculate_efficiency(model_file, MC_file, BDT_cut, generatedH, recoH, output, pt_min, pt_max):
     # apply model+BDTcut to MC data
     recoBDTH = apply_ML_model(model_file, MC_file, tree_name='SignalTable', output_file=None, BDT_cut=BDT_cut, pt_cut=(pt_min, pt_max))[0]
 
@@ -159,7 +159,7 @@ def calculate_efficiency(model_file, MC_file, BDT_cut, generatedH, recoH, output
     print(BDT_cut, eff)
     return eff
 
-def get_efficiency(MC_file, model_file, BDT_cuts):
+def get_efficiency(MC_file, model_file, BDT_cuts, pt_min, pt_max):
     '''
     This function calculates the efficiency depending on the BDT cut. For the efficiency we only use MC files
     TODO: there is a whole function for this!
@@ -190,11 +190,11 @@ def get_efficiency(MC_file, model_file, BDT_cuts):
     # apply model to reconstructed Hypertritons
     # pt cut is already considered here!
 
-    efficiency = [calculate_efficiency(MC_file=MC_file, model_file=model_file, BDT_cut=BDT_cut, generatedH=generatedH, recoH=recoH, output=False) for BDT_cut in BDT_cuts]
+    efficiency = [calculate_efficiency(MC_file=MC_file, model_file=model_file, BDT_cut=BDT_cut, generatedH=generatedH, recoH=recoH, output=False, pt_min = pt_min, pt_max=pt_max) for BDT_cut in BDT_cuts]
     
     return efficiency
     
-def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cut):
+def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cut, model_file):
     pt_min = pt_cut[0]
     pt_max = pt_cut[1]
    
@@ -217,7 +217,7 @@ def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cu
     '''
 
     # determine cut on invariant mass with gaussian fit
-    selected_data_hndl, dataH =  apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut=0.7, pt_cut=pt_cut)
+    selected_data_hndl, dataH =  apply_ML_model(model_file, data_file, tree_name, output_file=None, BDT_cut=0.7, pt_cut=pt_cut)
    
     df = selected_data_hndl.get_data_frame()
     count, bins = np.histogram(df['m'], bins=50)
@@ -306,8 +306,14 @@ if __name__ == "__main__":
 
     for i in range(len(pt)-1):
         # specify which dataset to look at
-        pt_min = pt[i]
-        pt_max = pt[i+1]
+
+        print("Pt_min:")
+        pt_min = input()
+        print("pt_max:")
+        pt_max = input()
+
+
+
         print(f'{pt_min} < pt < {pt_max}')
 
         # model and output file
@@ -321,7 +327,7 @@ if __name__ == "__main__":
         # TODO: add single scripts for efficiency, significance. etc.
 
 
-        BDT_cuts = np.linspace(-15,10,50)
+        BDT_cuts = np.linspace(-15,10,100)
 
         # calculate efficiency for different BDT values
 
@@ -337,7 +343,7 @@ if __name__ == "__main__":
 
         # calculate significance for different BDT values
 
-        significance = get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name='DataTable', pt_cut=(pt_min, pt_max))
+        significance = get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name='DataTable', pt_cut=(pt_min, pt_max), model_file =model_file)
         
         with open(f"../Output/SignEff/significance_{pt_min}_pt_{pt_max}.json", 'w') as f:
             json.dump(significance, f, indent=2) 
@@ -358,10 +364,7 @@ if __name__ == "__main__":
         )
         plt.xlabel('BDT cut')
         plt.ylabel(r'Efficiency $\varepsilon $')
-        # plt.legend()
-        # save_output_as_pdf(f'../Output/SignEff/efficiency_BDT_{pt_min}<pt<{pt_max}.pdf')
         print('Efficiency saved.')
-        # plt.close()
 
 
         plt.figure()
@@ -371,20 +374,24 @@ if __name__ == "__main__":
         )
         plt.xlabel('BDT cut')
         plt.ylabel(r'Significance')
-        # plt.legend()
-        # save_output_as_pdf(f'../Output/SignEff/significance_BDT_{pt_min}_pt_{pt_max}.pdf')
         print('Significance saved.')
-        # plt.close()
+
 
         plt.figure()
+
         signxeff = [x*y for x,y in zip(significance, efficiency)]
 
-        # with open(f"signxeff_{pt_min}_pt_{pt_max}.json", 'w') as f:
-        #     json.dump(efficiency, f, indent=2) 
+        with open(f"../Output/SignEff/signxeff_{pt_min}_pt_{pt_max}.json", 'w') as f:
+            json.dump(signxeff, f, indent=2) 
+        
+        print('SignificancexEfficiency saved as:', f"../Output/SignEff/signxeff_{pt_min}_pt_{pt_max}.json")
+        
         Best_BDT = BDT_cuts[signxeff.index(max(signxeff))]
         print(Best_BDT)
+        # hier ist es noch der richtige!!
 
-        print('SignificancexEfficiency saved as:', f"../Output/SignEff/signxeff{pt_min}_pt_{pt_max}.json")
+
+        
         plt.plot(
             BDT_cuts, signxeff,
             color='orangered',
@@ -394,8 +401,7 @@ if __name__ == "__main__":
         plt.xlabel('BDT cut')
         plt.ylabel(r'Significance x Efficiency')
         plt.legend()
-        # save_output_as_pdf(f'../Output/SignEff/SignificancexEfficiency_BDT_{pt_min}_pt_{pt_max}.pdf')
-        # plt.close()
+
 
         save_output_as_pdf(f'../Output/SignEff/SignEff_output_{pt_min}_pt_{pt_max}.pdf')
         plt.close('all')

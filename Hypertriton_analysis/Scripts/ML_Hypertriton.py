@@ -36,7 +36,7 @@ def save_output_as_pdf(filename):
     p.close()  
 
 
-def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
+def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max, optuna, output):
     '''
     this function trains a model on the input training signal and bkg data, and applies it afterwards
     '''
@@ -98,8 +98,9 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
         'colsample_bytree':(0.5, 0.9),
         }
     
-    # OBACHT: Do not run on alicecerno2 with n_jobs=-1 !!
-    model_hdl.optimize_params_optuna(train_test_data, hyper_pars_ranges, cross_val_scoring='roc_auc',\
+    # ATTENTION: Do not run on alicecerno2 with n_jobs=-1 !!
+    if optuna == True:
+        model_hdl.optimize_params_optuna(train_test_data, hyper_pars_ranges, cross_val_scoring='roc_auc',\
                                      timeout=120, n_jobs=8, n_trials=100, direction='maximize')
 
     model_hdl.train_test_model(train_test_data)
@@ -142,9 +143,10 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max):
     ax.set_xlim([2.9479616, 3.1])
     # ax.set_yscale('log')
 
-    # save output as pdf
-    save_output_as_pdf(filename)  
-    print('output has been saved as:', filename)
+    if output == True:
+        # save output as pdf
+        save_output_as_pdf(filename)  
+        print('output has been saved as:', filename)
 
 
 if __name__ == "__main__":
@@ -174,6 +176,7 @@ if __name__ == "__main__":
         
         bkgH.get_handler_from_large_file(file_name='../Data/DataTable_18LS_pass3.root',tree_name='DataTable', 
                             preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
+        bkgH = bkgH.get_subset(size=170001)
         
         # df = dataH.get_data_frame()
         # print(df[:10])
@@ -184,10 +187,10 @@ if __name__ == "__main__":
         # bkgH = dataH.get_subset('m < 2.991-3*0.0017 or m > 2.991+3*0.0017', size=promptH.get_n_cand()*3)
         # limits are taken from 
         # https://www.researchgate.net/publication/334719549_Highlights_of_the_production_of_anti-hyper-nuclei_and_exotica_with_ALICE_at_the_LHC/download
-        # bkgH = bkgH.get_subset(size=170001)
+       
 
         filename=f"../Output/ML_Hypertriton_output_{pt_min}_pt_{pt_max}.pdf"  
         
-        ML_Hypertriton(dataH, bkgH, promptH, filename, pt_min, pt_max)
+        ML_Hypertriton(dataH, bkgH, promptH, filename, pt_min, pt_max, optuna=True, output=True)
         
     
