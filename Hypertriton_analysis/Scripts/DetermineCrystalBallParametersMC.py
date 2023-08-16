@@ -7,10 +7,10 @@ import json
 matter = "false"
 
 #output file
-Output= "./Output/RooFitCB2pt6_AM"
+Output= "./Output/RooFitCB3pt6_AM"
 
 #pt cuts
-pt_min = 2
+pt_min = 3
 pt_max = 6
 
 
@@ -96,7 +96,6 @@ def CreatePlots(i):
 
 #--------------CODE-----------------------
 if __name__ == "__main__":
-    print(f"{pt_min}<pt<{pt_max}")
     
     
     # define variables
@@ -213,5 +212,3 @@ if __name__ == "__main__":
     
     c5.SaveAs(f"{Output}.pdf)")
     
-    
-    exit()
