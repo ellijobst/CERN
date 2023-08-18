@@ -30,7 +30,7 @@ def TrainModel(bkgH, promptH, pt_min, pt_max, optuna=False):
     print('Features used for Training:', features_for_train)
 
     # create Model
-    model_clf = xgb.XGBClassifier(n_jobs=10)
+    model_clf = xgb.XGBClassifier(n_jobs=10) #for some reason this is not working
     model_hdl = ModelHandler(model_clf, features_for_train)
 
     # define the shape of the model (how deep, how many trees etc.)
@@ -47,7 +47,7 @@ def TrainModel(bkgH, promptH, pt_min, pt_max, optuna=False):
     # ATTENTION: Do not run on alicecerno2 with n_jobs=-1 !!
     if optuna == True:
         model_hdl.optimize_params_optuna(train_test_data, hyper_pars_ranges, cross_val_scoring='roc_auc',\
-                                     timeout=120, n_jobs=8, n_trials=100, direction='maximize')
+                                     timeout=120, n_jobs=10, n_trials=100, direction='maximize')
 
     model_hdl.train_test_model(train_test_data)
 
@@ -95,7 +95,7 @@ def OptimizeBDT(pt_min, pt_max, MC_file, bkg_file):
 
     return Best_BDT, Best_BDT_Sign
 
-
+# not used atm
 def ApplyModel(pt_min, pt_max, Best_BDT):
 
     MC = "MC"
@@ -134,16 +134,28 @@ def Procedure_for_one_pt_range(pt_min, pt_max):
     bkg_file = f'../Data/DataTable_18LS_pass3.root'
     model_file = f'../Models/Hypertriton_model_{pt_min}<pt<{pt_max}'
 
-    dataH.get_handler_from_large_file(file_name=data_file,tree_name='DataTable', 
-                        preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
+    dataH.get_handler_from_large_file(
+        file_name = data_file,
+        tree_name = 'DataTable', 
+        preselection = f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
+        max_workers = 10,
+        )
     dataH = dataH.get_subset(size=170001)
 
-    promptH.get_handler_from_large_file(file_name=MC_file,tree_name='SignalTable', 
-                        preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
+    promptH.get_handler_from_large_file(
+        file_name = MC_file,
+        tree_name ='SignalTable', 
+        preselection = f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
+        max_workers = 10,
+        )
     promptH = promptH.get_subset(size=5667)
     
-    bkgH.get_handler_from_large_file(file_name=bkg_file,tree_name='DataTable', 
-                        preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
+    bkgH.get_handler_from_large_file(
+        file_name = bkg_file,
+        tree_name = 'DataTable', 
+        preselection = f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
+        max_workers = 10,
+        )
     bkgH = bkgH.get_subset(size=170001)
 
     #----------------------TRAIN MODEL----------------------
@@ -164,8 +176,8 @@ def Procedure_for_one_pt_range(pt_min, pt_max):
 if __name__ == "__main__":
     # pt ranges:
     max_int_size = 7#GeV/c
-    min_int_size = 1.6#GeV/c
-    step_size = 0.2#GeV/c
+    min_int_size = 2#GeV/c #before: 1.6
+    step_size = 1#GeV/c
     maximumPt=9#GeV/c
     minimumPt=2#GeV/c
 
@@ -175,7 +187,8 @@ if __name__ == "__main__":
     for i in range(int((max_int_size-min_int_size)/step_size)+1):
         int_size = max_int_size - i*step_size
         print("pt interval size", int_size)
-
+        # if i < 3:
+        #     continue
         for j in range(i+1):
             pt_min = minimumPt+step_size*j
             pt_max = pt_min + int_size
@@ -185,10 +198,10 @@ if __name__ == "__main__":
             pt_ranges.append((pt_min, pt_max))
             significances.append(Significance)
 
-    with open(f"../Output/ptSignificances.json", 'w') as f:
+    with open(f"../Output/ptSignificances{step_size}GeV.json", 'w') as f:
         json.dump(significances, f, indent=2) 
 
-    with open(f"../Output/ptIntervals.json", 'w') as f:
+    with open(f"../Output/ptIntervals{step_size}GeV.json", 'w') as f:
         json.dump(pt_ranges, f, indent=2) 
 
     Best_pT = pt_ranges[significances.index(max(significances))]

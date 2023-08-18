@@ -68,7 +68,7 @@ def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cu
     pt_max = pt_cut[1]
 
     # create Model
-    model_clf = xgb.XGBClassifier()
+    model_clf = xgb.XGBClassifier(n_jobs = 10)
     model_hdl = ModelHandler(model_clf)
 
     #load model
@@ -77,9 +77,10 @@ def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cu
     #load data and cut on pt
     dataH = TreeHandler()
     dataH.get_handler_from_large_file(
-        file_name=data_file, 
-        tree_name=tree_name, 
-        preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
+        file_name = data_file, 
+        tree_name = tree_name, 
+        preselection = f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
+        max_workers = 10, 
         )
 
     #apply model
@@ -175,6 +176,7 @@ def get_efficiency(MC_file, model_file, BDT_cuts, pt_min, pt_max):
         file_name=MC_file, 
         tree_name='GenTable', 
         preselection =f'{pt_min} < pt < {pt_max}', #only apply pt cut
+        max_workers = 10,
         )
 
     # reconstructed Hypertritons 
@@ -183,6 +185,7 @@ def get_efficiency(MC_file, model_file, BDT_cuts, pt_min, pt_max):
         file_name=MC_file, 
         tree_name='SignalTable', 
         preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35', #apply all cuts
+        max_workers = 10,
         )
     
     print(recoH.get_n_cand(), generatedH.get_n_cand())
@@ -195,8 +198,8 @@ def get_efficiency(MC_file, model_file, BDT_cuts, pt_min, pt_max):
     return efficiency
     
 def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cut, model_file):
-    pt_min = pt_cut[0]
-    pt_max = pt_cut[1]
+    # pt_min = pt_cut[0]
+    # pt_max = pt_cut[1]
    
     # get number of hypertritons
     N_hyp = [2*278971416*2.6e-5*0.25*eff for eff in efficiency]
@@ -226,13 +229,13 @@ def get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name, pt_cu
     m_Hyp = 2.991
     p0=[m_Hyp, 3*0.0017, 150]
     # p0=StartParamsNorm(df)
-    optimizedParameters, pcov = opt.curve_fit(norm, centered_bins, count, p0=p0) #TODO:das funktioniert nicht !
+    optimizedParameters, pcov = opt.curve_fit(norm, centered_bins, count, p0=p0) #TODO:vlt zu root fit ändern
 
-    plt.figure()
-    plot_utils.plot_distr(selected_data_hndl, column=['m'], bins=50)
-    plt.plot(np.linspace(bins[0], bins[-1], 100), norm(np.linspace(bins[0], bins[-1], 100), *optimizedParameters), label='Gaussian Fit')
-    plt.show()
-    plt.close()
+    # plt.figure()
+    # plot_utils.plot_distr(selected_data_hndl, column=['m'], bins=50)
+    # plt.plot(np.linspace(bins[0], bins[-1], 100), norm(np.linspace(bins[0], bins[-1], 100), *optimizedParameters), label='Gaussian Fit')
+    # plt.show()
+    # plt.close()
 
     m_Hyp_fit = optimizedParameters[0]
     std = optimizedParameters[1]
@@ -275,14 +278,18 @@ def calculate_number_of_background_events(model_file, data_file, bkg_file, tree_
     m_max = m_cut[1]
 
     # load model
-    model_clf = xgb.XGBClassifier()
+    model_clf = xgb.XGBClassifier(n_jobs = 10)
     model_hdl = ModelHandler(model_clf)
     model_hdl.load_model_handler(model_file)
 
     # load bkg file and apply model
     bkgH = TreeHandler()
-    bkgH.get_handler_from_large_file(file_name=bkg_file,tree_name='DataTable', 
-                            preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35 and {m_min} < m < {m_max}')
+    bkgH.get_handler_from_large_file(
+        file_name=bkg_file,
+        tree_name='DataTable', 
+        preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35 and {m_min} < m < {m_max}',
+        max_workers = 10,
+    )
     bkgH.apply_model_handler(model_hdl, output_margin=True)
     
     N_before = bkgH.get_n_cand()
@@ -290,7 +297,7 @@ def calculate_number_of_background_events(model_file, data_file, bkg_file, tree_
     # cut on BDT
     selected_bkg_hndl = bkgH.get_subset(f'model_output>{BDT_cut}')
     N_bkg = selected_bkg_hndl.get_n_cand()
-    N_bkg_after = N_before - N_bkg
+    # N_bkg_after = N_before - N_bkg
     print(N_bkg)
     return N_bkg
 
