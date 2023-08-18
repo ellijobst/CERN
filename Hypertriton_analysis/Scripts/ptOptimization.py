@@ -1,7 +1,14 @@
+import os
+
+os.environ["MKL_NUM_THREADS"] = "1" 
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ['OMP_NUM_THREADS'] = "1"
+
+
 import xgboost as xgb
 import numpy as np
 import json
-from ML_Hypertriton import save_output_as_pdf
+
 from apply_model import get_efficiency, get_significance, apply_ML_model
 from HypertritonRestframeBoost import get_df
 from hipe4ml.tree_handler import TreeHandler
@@ -30,8 +37,8 @@ def TrainModel(bkgH, promptH, pt_min, pt_max, optuna=False):
     print('Features used for Training:', features_for_train)
 
     # create Model
-    model_clf = xgb.XGBClassifier(n_jobs=10) #for some reason this is not working
-    model_hdl = ModelHandler(model_clf, features_for_train)
+    model_clf = xgb.XGBClassifier(n_jobs=2) #for some reason this is not working
+    model_hdl = ModelHandler(model_clf, features_for_train, {'n_jobs' : 2})
 
     # define the shape of the model (how deep, how many trees etc.)
     hyper_pars_ranges = {
@@ -47,9 +54,9 @@ def TrainModel(bkgH, promptH, pt_min, pt_max, optuna=False):
     # ATTENTION: Do not run on alicecerno2 with n_jobs=-1 !!
     if optuna == True:
         model_hdl.optimize_params_optuna(train_test_data, hyper_pars_ranges, cross_val_scoring='roc_auc',\
-                                     timeout=120, n_jobs=10, n_trials=100, direction='maximize')
+                                     timeout=120, n_jobs=2, n_trials=100, direction='maximize')
 
-    model_hdl.train_test_model(train_test_data)
+    model_hdl.train_test_model(train_test_data, {'n_jobs' : 2})
 
     print('model has been trained')
 
@@ -125,9 +132,9 @@ def ApplyModel(pt_min, pt_max, Best_BDT):
 def Procedure_for_one_pt_range(pt_min, pt_max):
     print(f'{pt_min} < pt < {pt_max}')
     #-----------------------LOAD TREES----------------------
-    dataH = TreeHandler()
-    promptH = TreeHandler()
-    bkgH = TreeHandler()
+    dataH = TreeHandler(library = "np")
+    promptH = TreeHandler(library = "np")
+    bkgH = TreeHandler(library = "np")
 
     data_file = '../Data/DataTable_18_pass3.root'
     MC_file = f'../Data/SignalTable_20g7.root'
@@ -138,7 +145,7 @@ def Procedure_for_one_pt_range(pt_min, pt_max):
         file_name = data_file,
         tree_name = 'DataTable', 
         preselection = f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
-        max_workers = 10,
+        max_workers = 2,
         )
     dataH = dataH.get_subset(size=170001)
 
@@ -146,7 +153,7 @@ def Procedure_for_one_pt_range(pt_min, pt_max):
         file_name = MC_file,
         tree_name ='SignalTable', 
         preselection = f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
-        max_workers = 10,
+        max_workers = 2,
         )
     promptH = promptH.get_subset(size=5667)
     
@@ -154,7 +161,7 @@ def Procedure_for_one_pt_range(pt_min, pt_max):
         file_name = bkg_file,
         tree_name = 'DataTable', 
         preselection = f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
-        max_workers = 10,
+        max_workers = 2,
         )
     bkgH = bkgH.get_subset(size=170001)
 
