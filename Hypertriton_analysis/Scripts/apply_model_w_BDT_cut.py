@@ -62,7 +62,7 @@ before=dataH.get_n_cand()
 after=selected_data_hndl.get_n_cand()
 
 print("BDT CUT EFFICIENCY:", after/before)
-
+exit()
 
 # plot signal (for crosscheck)
 '''plot_utils.plot_distr(

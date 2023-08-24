@@ -68,19 +68,19 @@ def apply_ML_model(model_file, data_file, tree_name, output_file, BDT_cut, pt_cu
     pt_max = pt_cut[1]
 
     # create Model
-    model_clf = xgb.XGBClassifier(n_jobs = 10)
-    model_hdl = ModelHandler(model_clf)
+    model_clf = xgb.XGBClassifier(n_jobs = 2)
+    model_hdl = ModelHandler(model_clf,  {'n_jobs' : 2})
 
     #load model
     model_hdl.load_model_handler(model_file)
 
     #load data and cut on pt
-    dataH = TreeHandler()
+    dataH = TreeHandler(library = "np")
     dataH.get_handler_from_large_file(
         file_name = data_file, 
         tree_name = tree_name, 
         preselection = f'{pt_min} < pt < {pt_max} and 1 < ct < 35',
-        max_workers = 10, 
+        max_workers = 2, 
         )
 
     #apply model
@@ -171,21 +171,21 @@ def get_efficiency(MC_file, model_file, BDT_cuts, pt_min, pt_max):
     '''
 
     # generated Hypertritons
-    generatedH = TreeHandler()
+    generatedH = TreeHandler(library = "np")
     generatedH.get_handler_from_large_file(
         file_name=MC_file, 
         tree_name='GenTable', 
         preselection =f'{pt_min} < pt < {pt_max}', #only apply pt cut
-        max_workers = 10,
+        max_workers = 2,
         )
 
     # reconstructed Hypertritons 
-    recoH = TreeHandler()
+    recoH = TreeHandler(library = "np")
     recoH.get_handler_from_large_file(
         file_name=MC_file, 
         tree_name='SignalTable', 
         preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35', #apply all cuts
-        max_workers = 10,
+        max_workers = 2,
         )
     
     print(recoH.get_n_cand(), generatedH.get_n_cand())
@@ -278,21 +278,21 @@ def calculate_number_of_background_events(model_file, data_file, bkg_file, tree_
     m_max = m_cut[1]
 
     # load model
-    model_clf = xgb.XGBClassifier(n_jobs = 10)
-    model_hdl = ModelHandler(model_clf)
+    model_clf = xgb.XGBClassifier(n_jobs = 2)
+    model_hdl = ModelHandler(model_clf, {"n_jobs" : 2})
     model_hdl.load_model_handler(model_file)
 
     # load bkg file and apply model
-    bkgH = TreeHandler()
+    bkgH = TreeHandler(library = "np")
     bkgH.get_handler_from_large_file(
         file_name=bkg_file,
         tree_name='DataTable', 
         preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35 and {m_min} < m < {m_max}',
-        max_workers = 10,
+        max_workers = 2,
     )
     bkgH.apply_model_handler(model_hdl, output_margin=True)
     
-    N_before = bkgH.get_n_cand()
+    # N_before = bkgH.get_n_cand()
 
     # cut on BDT
     selected_bkg_hndl = bkgH.get_subset(f'model_output>{BDT_cut}')
