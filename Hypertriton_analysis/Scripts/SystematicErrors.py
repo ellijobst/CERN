@@ -7,10 +7,11 @@ import datetime
 
 
 # TODO: add option to not save output,since it will be a lot of files, remove plotting if possible to save computing time
-# TODO: check that everything is done for matter and antimatter
+# TODO: make more efficient
 
 #--------------FUNCTIONS--------------
 
+# These two function determine the CB parameters from the MC fit
 def CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, pt_min, pt_max, matter, Output, nbins):
     '''
     This function is fitting a RooCrystalBall Shape on MC SignalTable and storing the fit parameters in a .json file, and plots in .pdf file.
@@ -42,8 +43,8 @@ def CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, pt_min
     fit_func.plotOn(mframe, ROOT.RooFit.Precision(1e-5),  ROOT.RooFit.LineWidth(2), ROOT.RooFit.LineColor(ROOT.kRed)) 
     
     # plot signal and background
-    fit_func.plotOn(mframe, ROOT.RooFit.Components("Expo"), ROOT.RooFit.LineColor(ROOT.kGreen+1) , LineWidth=2)
-    fit_func.plotOn(mframe, ROOT.RooFit.Components("gauss"), ROOT.RooFit.LineColor(ROOT.kBlue+1) , LineWidth=2)
+    # fit_func.plotOn(mframe, ROOT.RooFit.Components("Expo"), ROOT.RooFit.LineColor(ROOT.kGreen+1) , LineWidth=2)
+    # fit_func.plotOn(mframe, ROOT.RooFit.Components("gauss"), ROOT.RooFit.LineColor(ROOT.kBlue+1) , LineWidth=2)
     
     legend = ROOT.TLegend(.12, .8, .49, .935)
     legend.SetBorderSize(1)
@@ -93,7 +94,6 @@ def CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, pt_min
 
     return nl.getVal(), nr.getVal(), alphal.getVal(), alphar.getVal(), nl.getError(), nr.getError(), alphal.getError(), alphar.getError(), sigma.getVal(), sigma.getError()
 
-
 def DetermineCBParametersFromMC(rdfMC, Output,  pt_min, pt_max, matter, nbins):
     '''
     This Function Defines the Variables and PDF for the Fit and stores the obtained Parameters for each bin in a list.
@@ -104,13 +104,13 @@ def DetermineCBParametersFromMC(rdfMC, Output,  pt_min, pt_max, matter, nbins):
     # define variables
     m = ROOT.RooRealVar("m", "m [GeV]", 2.96, 3.04)
     m0 = ROOT.RooRealVar("m0", "mean of CB", 2.992,  2.990, 2.994)
-    sigma = ROOT.RooRealVar("sigma", "sigma of CB", 0.001,  0.0001, 0.0015)
+    sigma = ROOT.RooRealVar("sigma", "sigma of CB", 0.001,  0.0001, 0.002)
 
     
-    alphal = ROOT.RooRealVar("alphal", "alpha L", 2.05,1, 2.1)
-    nl = ROOT.RooRealVar("nl", "n L", 4.7,  3.9, 7.2)
-    alphar = ROOT.RooRealVar("alphar", "alpha right", 2.08, 1, 2.2)
-    nr = ROOT.RooRealVar("nr", "n right", 3.7, 2.9 , 6.5)
+    alphal = ROOT.RooRealVar("alphal", "alpha L", 2.05,0.8, 2.1)
+    nl = ROOT.RooRealVar("nl", "n L", 4.7,  3, 7.2)
+    alphar = ROOT.RooRealVar("alphar", "alpha right", 2.08, 0.8, 2.2)
+    nr = ROOT.RooRealVar("nr", "n right", 3.7, 2 , 6.5)
 
     # define pdf model
     fit_func = ROOT.RooCrystalBall("fit_func", "Crystal Ball PDF", m, m0, sigma, alphal, nl, alphar, nr)
@@ -131,62 +131,44 @@ def DetermineCBParametersFromMC(rdfMC, Output,  pt_min, pt_max, matter, nbins):
     # create plots with signal fit-------------------------------------------------
     results = [CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, pt_min, pt_max, matter, Output, nbins) for i in range(nbins)]
     
-    '''
-    # nl = [results[i][0] for i in range(len(results))]
-    # nr = [results[i][1] for i in range(len(results))]
-    # alphal = [results[i][2] for i in range(len(results))]
-    # alphar = [results[i][3] for i in range(len(results))]
-    # sigma = [results[i][8] for i in range(len(results))]
-    
-    # nl_err = [results[i][4] for i in range(len(results))]
-    # nr_err = [results[i][5] for i in range(len(results))]
-    # alphal_err = [results[i][6] for i in range(len(results))]
-    # alphar_err = [results[i][7] for i in range(len(results))]
-    # sigma_err = [results[i][9] for i in range(len(results))]
-    '''
     if matter == "true":
         matter3 = "M"
     elif matter == "false":
         matter3 = "AM"
-#     with open(f"./CBFixedMCParameters/FixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'w') as f:
+
     with open(f"./forSystematicErrors/FixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'w') as f:
         json.dump(results, f, indent=2) 
 
     logging.info("MC fit parameters saved.")
     del c2
+    del rdf
+    del cos_theta
 
     return results
 
-
-def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma, lam, a, b, frac, nbins, cmin, matter, rdf, pt_min, pt_max, Output, model):
+# these two functions obtain the Number of Hypertriton Candidates from the Data
+def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list, lam, lin, quad, frac, nbins, cmin, matter, rdf, pt_min, pt_max, Output, model, fitsigma):
     
     # Fix parameters based on MC fit
     alphal = ROOT.RooRealVar("alphal", "alpha L", alphal_list[i], alphal_list[i], alphal_list[i])
     nl = ROOT.RooRealVar("nl", "n L", nl_list[i], nl_list[i], nl_list[i])
     alphar = ROOT.RooRealVar("alphar", "alpha right", alphar_list[i], alphar_list[i], alphar_list[i])
     nr = ROOT.RooRealVar("nr", "n right", nr_list[i], nr_list[i], nr_list[i])
+
+
+    if fitsigma == True:
+        # sigma is determined by fit of Data
+        sigma = ROOT.RooRealVar("sigma", "sigma", 0.001,  0.0001, 0.002) #standard deviation of CB
+    else:
+        # sigma is determined by MC fit
+        sigma = ROOT.RooRealVar("sigma", "sigma", sigma_list[i], sigma_list[i], sigma_list[i])
     
     # Define PDF for Fit
     CB = ROOT.RooCrystalBall("CB", "Crystal Ball PDF", m, m0, sigma, alphal, nl, alphar, nr)
     expo = ROOT.RooExponential("Expo", "expo pdf", m, lam )
-    pol1 = ROOT.RooPolynomial("linear", "linear", m, ROOT.RooArgList(b))
-    pol2 = ROOT.RooPolynomial("linear", "linear", m, ROOT.RooArgList(b, a))
+    pol1 = ROOT.RooPolynomial("Pol1", "linear", m, ROOT.RooArgList(lin))
+    pol2 = ROOT.RooPolynomial("Pol2", "quadratic", m, ROOT.RooArgList(lin, quad))
 
-    if model == "ExpoCB":
-        fit_func = ROOT.RooAddPdf("fit_func", "Fit_function_pdf", ROOT.RooArgList(CB, expo), ROOT.RooArgList(frac))
-    elif model == "Pol1CB":
-        fit_func = ROOT.RooAddPdf("fit_func", "Fit_function_pdf", ROOT.RooArgList(pol1, expo), ROOT.RooArgList(frac))
-    elif model == "Pol2CB":
-        fit_func = ROOT.RooAddPdf("fit_func", "Fit_function_pdf", ROOT.RooArgList(pol2, expo), ROOT.RooArgList(frac))
-    else:
-        print("Not a valid model selected. Exiting...")
-        exit()
-
-    # create canvas
-    c1 = ROOT.TCanvas()
-    mframe = m.frame(Title="m histogram + Fit")
-    
-   
     bins = np.linspace(-1,1,nbins+1)
 
     # create histogram
@@ -196,39 +178,105 @@ def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma, lam
     
     # get RooDataHist
     dh = ROOT.RooDataHist("dh", "dataset with m", m, inv_mass.GetPtr())
-    
-    # draw histogram using again 80 bins
+
+    # Create Canvas
+    c1 = ROOT.TCanvas()
+    mframe = m.frame(Title="m histogram + Fit")
+
+    # Draw histogram 
     dh.plotOn(mframe, ROOT.RooFit.Name("dh"), ROOT.RooFit.MarkerSize(0))#, Binning=80)
-    
-    # fit pdf and plot fit 
-    fit_func.fitTo(dh)
-    fit_func.plotOn(mframe, ROOT.RooFit.Precision(1e-5),  ROOT.RooFit.LineWidth(2), ROOT.RooFit.LineColor(ROOT.kRed), ROOT.RooFit.Name("fit_func")) 
-    
-    # plot signal and background
-    fit_func.plotOn(mframe, ROOT.RooFit.Components("Expo"), ROOT.RooFit.LineColor(ROOT.kGreen+1) , LineWidth=2)
-    fit_func.plotOn(mframe, ROOT.RooFit.Components("CB"), ROOT.RooFit.LineColor(ROOT.kBlue+1) , LineWidth=2)
-    
-    legend = ROOT.TLegend(.12, .8, .49, .935)
-    legend.SetBorderSize(1)
-    legend.AddEntry(dh, "Data", "le")
 
-    # fit_func.SetLineColor(ROOT.kRed)
-    legend.AddEntry(fit_func, "Fit = Signal + Background", "l").SetLineColor(ROOT.kRed)
-    legend.AddEntry(expo, "Background = (1-a)*exp(x #lambda))", "l").SetLineColor(ROOT.kGreen+1)
-    legend.AddEntry(CB, "Signal = a*CB(x, #mu, #sigma, n_{L}, #alpha_{L}, n_{R}, #alpha_{R})", "l").SetLineColor(ROOT.kBlue)
+    # Fit using different PDFs
+    if model == "ExpoCB":
 
-    legend.SetTextSize(0.025)
-    
-    # Add Fit Parameters to canvas 
-    pave = ROOT.TPaveText(0.5, 0.75, 0.77, 0.935, "NDC")
-    pave.SetBorderSize(1)
-    pave.SetFillColor(ROOT.kWhite)
-    pave.SetTextFont(42)
+        fit_func = ROOT.RooAddPdf("fit_func", "Fit_function_pdf", ROOT.RooArgList(CB, expo), ROOT.RooArgList(frac))
 
-    t0 = pave.AddText(f"#mu = {str(m0.getVal())[:10]} #pm {str(m0.getError())[:10]}")
-    t1 = pave.AddText(f"#sigma = {str(sigma.getVal())[:10]} #pm {str(sigma.getError())[:10]}")
-    t6 = pave.AddText(f"a = {str(frac.getVal())[:10]} #pm {str(frac.getError())[:10]}")
-    t7 = pave.AddText(f"#lambda = {str(lam.getVal())[:10]} #pm {str(lam.getError())[:10]}")
+        fit_func.fitTo(dh)
+
+        fit_func.plotOn(mframe, ROOT.RooFit.Precision(1e-5),  ROOT.RooFit.LineWidth(2), ROOT.RooFit.LineColor(ROOT.kRed), ROOT.RooFit.Name("fit_func")) 
+        fit_func.plotOn(mframe, ROOT.RooFit.Components("Expo"), ROOT.RooFit.LineColor(ROOT.kGreen+1) , LineWidth=2)
+        fit_func.plotOn(mframe, ROOT.RooFit.Components("CB"), ROOT.RooFit.LineColor(ROOT.kBlue+1) , LineWidth=2)
+    	
+        # Plot Legend
+        legend = ROOT.TLegend(.12, .8, .49, .935)
+        legend.SetBorderSize(1)
+        legend.AddEntry(dh, "Data", "le")
+        legend.AddEntry(fit_func, "Fit = Signal + Background", "l").SetLineColor(ROOT.kRed)
+        legend.AddEntry(expo, "Background = (1-a)*exp(x #lambda))", "l").SetLineColor(ROOT.kGreen+1)
+        legend.AddEntry(CB, "Signal = a*CB(x, #mu, #sigma, n_{L}, #alpha_{L}, n_{R}, #alpha_{R})", "l").SetLineColor(ROOT.kBlue)
+        legend.SetTextSize(0.025)
+
+        pave = ROOT.TPaveText(0.5, 0.75, 0.77, 0.935, "NDC")
+        pave.SetBorderSize(1)
+        pave.SetFillColor(ROOT.kWhite)
+        pave.SetTextFont(42)
+
+        t0 = pave.AddText(f"#mu = {str(m0.getVal())[:10]} #pm {str(m0.getError())[:10]}")
+        t1 = pave.AddText(f"#sigma = {str(sigma.getVal())[:10]} #pm {str(sigma.getError())[:10]}")
+        t6 = pave.AddText(f"a = {str(frac.getVal())[:10]} #pm {str(frac.getError())[:10]}")
+        t7 = pave.AddText(f"#lambda = {str(lam.getVal())[:10]} #pm {str(lam.getError())[:10]}")
+
+    elif model == "Pol1CB":
+        fit_func = ROOT.RooAddPdf("fit_func", "Fit_function_pdf", ROOT.RooArgList(CB, pol1), ROOT.RooArgList(frac))
+
+        fit_func.fitTo(dh)
+
+        fit_func.plotOn(mframe, ROOT.RooFit.Precision(1e-5),  ROOT.RooFit.LineWidth(2), ROOT.RooFit.LineColor(ROOT.kRed), ROOT.RooFit.Name("fit_func")) 
+        fit_func.plotOn(mframe, ROOT.RooFit.Components("Pol1"), ROOT.RooFit.LineColor(ROOT.kGreen+1) , LineWidth=2)
+        fit_func.plotOn(mframe, ROOT.RooFit.Components("CB"), ROOT.RooFit.LineColor(ROOT.kBlue+1) , LineWidth=2)
+    	
+        # Plot Legend
+        legend = ROOT.TLegend(.12, .8, .49, .935)
+        legend.SetBorderSize(1)
+        legend.AddEntry(dh, "Data", "le")
+        legend.AddEntry(fit_func, "Fit = Signal + Background", "l").SetLineColor(ROOT.kRed)
+        legend.AddEntry(pol1, "Background = (1-a)*(c_{1}x))", "l").SetLineColor(ROOT.kGreen+1)
+        legend.AddEntry(CB, "Signal = a*CB(x, #mu, #sigma, n_{L}, #alpha_{L}, n_{R}, #alpha_{R})", "l").SetLineColor(ROOT.kBlue)
+        legend.SetTextSize(0.025)
+
+        pave = ROOT.TPaveText(0.5, 0.75, 0.77, 0.935, "NDC")
+        pave.SetBorderSize(1)
+        pave.SetFillColor(ROOT.kWhite)
+        pave.SetTextFont(42)
+
+        t0 = pave.AddText(f"#mu = {str(m0.getVal())[:10]} #pm {str(m0.getError())[:10]}")
+        t1 = pave.AddText(f"#sigma = {str(sigma.getVal())[:10]} #pm {str(sigma.getError())[:10]}")
+        t6 = pave.AddText(f"a = {str(frac.getVal())[:10]} #pm {str(frac.getError())[:10]}")
+        t7 = pave.AddText("c_{1}"+f" = {str(lin.getVal())[:10]} #pm {str(lin.getError())[:10]}")
+
+    elif model == "Pol2CB":
+        fit_func = ROOT.RooAddPdf("fit_func", "Fit_function_pdf", ROOT.RooArgList(CB, pol2), ROOT.RooArgList(frac))
+
+        fit_func.fitTo(dh)
+
+        fit_func.plotOn(mframe, ROOT.RooFit.Precision(1e-5),  ROOT.RooFit.LineWidth(2), ROOT.RooFit.LineColor(ROOT.kRed), ROOT.RooFit.Name("fit_func")) 
+        fit_func.plotOn(mframe, ROOT.RooFit.Components("Pol2"), ROOT.RooFit.LineColor(ROOT.kGreen+1) , LineWidth=2)
+        fit_func.plotOn(mframe, ROOT.RooFit.Components("CB"), ROOT.RooFit.LineColor(ROOT.kBlue+1) , LineWidth=2)
+    	
+        # Plot Legend
+        legend = ROOT.TLegend(.12, .8, .49, .935)
+        legend.SetBorderSize(1)
+        legend.AddEntry(dh, "Data", "le")
+        legend.AddEntry(fit_func, "Fit = Signal + Background", "l").SetLineColor(ROOT.kRed)
+        legend.AddEntry(pol2, "Background = (1-a)*(c_{2}x^2+c_{1}x))", "l").SetLineColor(ROOT.kGreen+1)
+        legend.AddEntry(CB, "Signal = a*CB(x, #mu, #sigma, n_{L}, #alpha_{L}, n_{R}, #alpha_{R})", "l").SetLineColor(ROOT.kBlue)
+        legend.SetTextSize(0.025)
+
+        pave = ROOT.TPaveText(0.5, 0.75, 0.77, 0.935, "NDC")
+        pave.SetBorderSize(1)
+        pave.SetFillColor(ROOT.kWhite)
+        pave.SetTextFont(42)
+
+        t0 = pave.AddText(f"#mu = {str(m0.getVal())[:10]} #pm {str(m0.getError())[:10]}")
+        t1 = pave.AddText(f"#sigma = {str(sigma.getVal())[:10]} #pm {str(sigma.getError())[:10]}")
+        t6 = pave.AddText(f"a = {str(frac.getVal())[:10]} #pm {str(frac.getError())[:10]}")
+        t7 = pave.AddText("c_{2}"+f" = {str(quad.getVal())[:10]} #pm {str(quad.getError())[:10]}")
+        t8 = pave.AddText("c_{1}"+f" = {str(lin.getVal())[:10]} #pm {str(lin.getError())[:10]}")
+
+    else:
+        print("Not a valid model selected. Exiting...")
+        exit()
+
     
     chisq = mframe.chiSquare("fit_func", "dh", 4)
         
@@ -253,16 +301,21 @@ def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma, lam
     c1.Draw()
     c1.SaveAs(f"{Output}.pdf")
     
+    
     return Nhyp, error
 
-
-def GetNHypertritonCandidates(rdfData,  Output, results, pt_min, pt_max, cmin, matter, nbins = 7, fitsigma=True):
+def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins = 7, fitsigma=True, model="ExpoCB"):
     #parameters from Fitting MCs with RooCrystalBall
-
     if matter == "true":
             matter3 = "M"
     elif matter == "false":
             matter3 = "AM"
+    fitsigma2 = ""
+    if fitsigma == True:
+        fitsigma2 = "S"
+
+    BDTEff = "%.2f" %BDTEfficiency
+    Output= f"./forSystematicErrors/RooFit{model}{fitsigma2}{pt_min}pt{pt_max}centr{cmin}_BDT{BDTEff}_{matter3}"
     # with open(f"./forSystematicErrors/FixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'r') as f:
     #         results = json.load(f)
     
@@ -289,16 +342,9 @@ def GetNHypertritonCandidates(rdfData,  Output, results, pt_min, pt_max, cmin, m
     frac = ROOT.RooRealVar("frac", "fraction", 0.5, 0, 1) #ratio between Signal and Bkg
     lam = ROOT.RooRealVar("Lambda", "slope of expo", -7, -50, 0) #parameter for the exponential
     # TODO: diese parameter ranges müssen angepasst werden
-    a = ROOT.RooRealVar("a", "f(x)=ax²+bx+c", -7, -50, 0)
-    b = ROOT.RooRealVar("b", "f(x)=ax²+bx+c", -7, -50, 0)
+    quad = ROOT.RooRealVar("c2", "f(x)=const+lin*x+quad*x²", -7, -50, 0)
+    lin = ROOT.RooRealVar("c1", "f(x)=const+lin*x+quad*x²", -7, -50, 50)
     # NOTE: Constant doesnt have to be added
-
-    if fitsigma == True:
-        # sigma is determined by fit of Data
-        sigma = ROOT.RooRealVar("sigma", "sigma", 0.001,  0.0001, 0.002) #standard deviation of CB
-    else:
-        # sigma is determined by MC fit
-        sigma = ROOT.RooRealVar("sigma", "sigma", sigma_list[i], sigma_list[i], sigma_list[i])
 
     
     # import data
@@ -317,7 +363,7 @@ def GetNHypertritonCandidates(rdfData,  Output, results, pt_min, pt_max, cmin, m
 
 
     # create plots with signal fit-------------------------------------------------
-    results = [CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma, lam, a, b, frac, nbins, cmin, matter, rdf, pt_min, pt_max, Output) for i in range(nbins)]
+    results = [CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list, lam, lin, quad, frac, nbins, cmin, matter, rdf, pt_min, pt_max, Output, model, fitsigma) for i in range(nbins)]
     number_of_Hypertritons = [results[i][0] for i in range(nbins)]
     errorbars = [results[i][1] for i in range(nbins)]
 
@@ -381,6 +427,7 @@ def GetNHypertritonCandidates(rdfData,  Output, results, pt_min, pt_max, cmin, m
     pt_distr.RedrawAxis()
     pt_distr.Draw()
     pt_distr.SaveAs(f"{Output}.pdf")
+
     
     #plot efficiency for whole pt range -------------------------------------------
     histgen = rdf_gen_cut.Histo1D(("cosThetaHistogram", "Cos(#theta_{beam}) Distribution for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}"+"; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
@@ -418,7 +465,7 @@ def GetNHypertritonCandidates(rdfData,  Output, results, pt_min, pt_max, cmin, m
 
     c_Eff = ROOT.TCanvas()
     centered_bins = (bins[:-1] + bins[1:]) / 2
-    # TODO
+
     h_cor = ROOT.TH1D("hist corrected", "Number of Hypertritons(corrected) for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max};"+" cos(#theta_{beam})", 7, -1, 1)
     
     h_cor.FillN(7, np.array(centered_bins), np.array(number_of_Hypertritons)/np.array(count) )
@@ -447,10 +494,10 @@ def GetNHypertritonCandidates(rdfData,  Output, results, pt_min, pt_max, cmin, m
 
     c_Eff.Draw()
     c_Eff.SaveAs(f"{Output}.pdf)")
-
+    print("output saved!")
     return Nhyp_corrected, yerr
     
-
+# These functions are used for the rest
 def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, matter):
     #-------------SETTINGS------------------
     # TODO: Add centrality cut, ggf.
@@ -458,12 +505,12 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
     if matter == "true":
         matter2 = "M"
 
-    # Specify Output File Paths
-    OutputMC= f"./forSystematicErrors/RooFitCB{pt_min}pt{pt_max}_BDT{BDTEfficiency}_{matter2}"
-    OutputData= f"./forSystematicErrors/RooFitCBExpo{pt_min}pt{pt_max}centr{cmin}_BDT{BDTEfficiency}_{matter2}"
-
     #centrality cut
     cmin = 0
+
+    # Specify Output File Paths
+    OutputMC= f"./forSystematicErrors/RooFitCB{pt_min}pt{pt_max}_BDT{BDTEfficiency}_{matter2}"
+   
     
     print("------------MC SETTINGS-------------")
     print(f"  Matter:             {matter}")
@@ -477,7 +524,7 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
     rdfMC_new = rdfMC.Filter(f"BDTEfficiency < {BDTEfficiency}")#TODO: plus ggf. Centrality cut
     
     # Calculate the Parameters for CB from fitting the MCs
-    results = DetermineCBParametersFromMC(rdfMC, OutputMC, matter, pt_min=pt_min, pt_max=pt_max)
+    results = DetermineCBParametersFromMC(rdfMC_new, OutputMC, pt_min, pt_max, matter, nbins)
 
 
     print("------------Data SETTINGS-----------")
@@ -489,108 +536,17 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
     print("------------------------------------")
 
     # do it for every model (Pol1, Pol2, Expo)+CB(with and without fixed sigma)
-    ExpoNhyp, ExpoYerr = GetNHypertritonCandidates(rdfData, OutputData, results, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="ExpoCB")
-    Pol1Nhyp, Pol1Yerr = GetNHypertritonCandidates(rdfData, OutputData, results, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol1CB")
-    Pol2Nhyp, Pol2Yerr = GetNHypertritonCandidates(rdfData, OutputData, results, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol2CB")  
-    ExpoNhypS, ExpoYerrS = GetNHypertritonCandidates(rdfData, OutputData, results, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="ExpoCB")
-    Pol1NhypS, Pol1YerrS = GetNHypertritonCandidates(rdfData, OutputData, results, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol1CB")
-    Pol2NhypS, Pol2YerrS = GetNHypertritonCandidates(rdfData, OutputData, results, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol2CB")        
+    ExpoNhyp, ExpoYerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="ExpoCB")
+    Pol1Nhyp, Pol1Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol1CB")
+    Pol2Nhyp, Pol2Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol2CB")  
+    ExpoNhypS, ExpoYerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="ExpoCB")
+    Pol1NhypS, Pol1YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol1CB")
+    Pol2NhypS, Pol2YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol2CB")        
 
 
     Nhyp = [ExpoNhyp, ExpoNhypS, Pol1Nhyp, Pol1NhypS, Pol2Nhyp, Pol2NhypS]
     Yerr = [ExpoYerr, ExpoYerrS, Pol1Yerr, Pol1YerrS, Pol2Yerr, Pol2YerrS]
     return Nhyp, Yerr
-
-
-def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size):
-    np.random.seed(2023)
-
-    #TODO: check if replace True or False! (mit Zurücklegen oder ohne)
-
-    # Select a random Element for each bin 
-    Nhyp_m = [np.random.choice(ResultsMatter[f"bin{i}"], size=sample_size, replace=False) for i in range(0,7,1)]
-    Nhyp_am = [np.random.choice(ResultsAntimatter[f"bin{i}"], size=sample_size, replace=False) for i in range(0,7,1)]
-
-    Yerr_m = [np.random.choice(ResultsMatter[f"bin{i}yerr"], size=sample_size, replace=False) for i in range(0,7,1)]
-    Yerr_am = [np.random.choice(ResultsAntimatter[f"bin{i}yerr"], size=sample_size, replace=False) for i in range(0,7,1)]
-
-    #define fit function
-    fit_func0 = ROOT.TF1("fit_func0", "pol0")
-    fit_func1 = ROOT.TF1("fit_func1", "pol1")
-    fit_func2 = ROOT.TF1("fit_func2", "pol2")
-    fit_func2.FixParameter(1,0)
-
-    slopes = []
-    slope_errors = []
-    # fit difference of Matter and Antimatter
-    for i in range(sample_size):
-
-        diff = [x[i]-y[i] for x,y in zip(Nhyp_m, Nhyp_am)]
-        diff_err = [np.sqrt(x[i]**2+y[i]**2) for x,y in zip(Yerr_m, Yerr_am)]
-
-        bins = np.linspace(-1,1,nbins+1)
-        centered_bins = (bins[:-1] + bins[1:]) / 2
-
-
-
-        c = ROOT.TCanvas()
-
-        h = ROOT.TH1D("hist", "Nhyp matter-antimatter", 7, -1, 1)
-        h.FillN(7, np.array(centered_bins), np.array(diff) )
-        for j in range(1,8,1):
-            h.SetBinError(j, diff_err[j-1])
-
-
-
-
-
-    # fit, here we use a chi2 fit, 
-    # since the counts are corrected and therefore the uncertainties are gaussian
-    # chi2 method is default, "F" means taking the errors of the data into account
-    #TODO: select different Fitting functions, no polarisation:pol0, Spin1/2:pol1, Spin3/2:pol2
-        fit_func = fit_func1
-
-        h.Fit(fit_func)
-        h.GetXaxis().SetTitle("cos(#theta_{beam}*)")
-        h.GetYaxis().SetTitle("Counts per bin")
-
-        h.Draw()
-
-        # fit_func.Draw("same")
-        fit_func.SetFillColor(ROOT.kRed-10)
-
-        legend = ROOT.TLegend(.12, .85, .3, .935)
-        legend.SetTextSize(0.025)
-        legend.SetBorderSize(1)
-        legend.AddEntry(h, "matter-antimatter", "l")
-        legend.AddEntry(fit_func, "linear Fit", "l").SetLineColor(ROOT.kRed)
-
-        legend.Draw()
-
-    
-
-        pars = fit_func.GetParameters()
-        errors = fit_func.GetParErrors()
-        chisq = fit_func.GetChisquare()
-
-        pave2 = ROOT.TPaveText(0.32, 0.8, 0.55, 0.935, "NDC")
-        pave2.AddText("#Chi^{2}"+f" = {str(chisq)[:10]}")
-        # degrees of freedom is number of bins minus number of fit parameters
-        pave2.AddText(f"Probabilty = {str(ROOT.TMath.Prob(chisq, 7-1))[:10]}")
-        pave2.SetBorderSize(1)
-        pave2.SetFillColor(ROOT.kWhite)
-        pave2.SetTextFont(42)
-
-        pave2.Draw("Same")
-
-        c.Draw()
-        c.SaveAs(f"{OutputSlope}.pdf")
-
-        # TODO:change when checking Pol2, Pol0
-        slopes.append(pars[1])
-        slope_errors.append(errors[1])
-
-    return slopes, slope_errors
 
 
 def GetResults(rdfData, rdfMC, matter, pt_min, pt_max, BDTEfficiencies, nbins):
@@ -640,11 +596,96 @@ def GetResults(rdfData, rdfMC, matter, pt_min, pt_max, BDTEfficiencies, nbins):
     with open(f"./forSystematicErrors/Results{matter2}.json", 'w') as f:
             json.dump(Results, f, indent=2) 
 
+    return Results
+
+def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size):
+    np.random.seed(1773)
+
+    #NOTE: Replace has to be True, since the nubmer of points per bin is less than the sample size
+
+    # Select a random Element for each bin 
+    Nhyp_m = [np.random.choice(np.array(ResultsMatter[f"bin{i}"]), size=sample_size, replace=True) for i in range(0,7,1)]
+    Nhyp_am = [np.random.choice(np.array(ResultsAntimatter[f"bin{i}"]), size=sample_size, replace=True) for i in range(0,7,1)]
+    print(Nhyp_am)
+    Yerr_m = [np.random.choice(np.array(ResultsMatter[f"bin{i}yerr"]), size=sample_size, replace=True) for i in range(0,7,1)]
+    Yerr_am = [np.random.choice(np.array(ResultsAntimatter[f"bin{i}yerr"]), size=sample_size, replace=True) for i in range(0,7,1)]
+
+    #define fit function
+    fit_func0 = ROOT.TF1("fit_func0", "pol0")
+    fit_func1 = ROOT.TF1("fit_func1", "pol1")
+    fit_func2 = ROOT.TF1("fit_func2", "pol2")
+    fit_func2.FixParameter(1,0)
+
+    slopes = []
+    slope_errors = []
+
+    # fit difference of Matter and Antimatter
+    for i in range(sample_size):
+        diff = [x[i]-y[i] for x,y in zip(Nhyp_m, Nhyp_am)]
+        diff_err = [np.sqrt(x[i]**2+y[i]**2) for x,y in zip(Yerr_m, Yerr_am)]
+
+        bins = np.linspace(-1,1,nbins+1)
+        centered_bins = (bins[:-1] + bins[1:]) / 2
+
+        # c = ROOT.TCanvas()
+
+        h = ROOT.TH1D("hist", "Nhyp matter-antimatter", 7, -1, 1)
+        h.FillN(7, np.array(centered_bins), np.array(diff) )
+        for j in range(1,8,1):
+            h.SetBinError(j, diff_err[j-1])
+
+        #TODO when running: select different Fitting functions, no polarisation:pol0 (=fit_func0), Spin1/2:pol1(=fit_func1), Spin3/2:pol2(=fit_func2)
+        fit_func = fit_func1
+
+        h.Fit(fit_func)
+        '''
+        h.GetXaxis().SetTitle("cos(#theta_{beam}*)")
+        h.GetYaxis().SetTitle("Counts per bin")
+
+        h.Draw()
+
+        # fit_func.Draw("same")
+        fit_func.SetFillColor(ROOT.kRed-10)
+
+        legend = ROOT.TLegend(.12, .85, .3, .935)
+        legend.SetTextSize(0.025)
+        legend.SetBorderSize(1)
+        legend.AddEntry(h, "matter-antimatter", "l")
+        legend.AddEntry(fit_func, "linear Fit", "l").SetLineColor(ROOT.kRed)
+
+        legend.Draw()
+        '''
+    
+
+        pars = fit_func.GetParameters()
+        errors = fit_func.GetParErrors()
+        chisq = fit_func.GetChisquare()
+        '''
+        pave2 = ROOT.TPaveText(0.32, 0.8, 0.55, 0.935, "NDC")
+        pave2.AddText("#Chi^{2}"+f" = {str(chisq)[:10]}")
+        # degrees of freedom is number of bins minus number of fit parameters
+        pave2.AddText(f"Probabilty = {str(ROOT.TMath.Prob(chisq, 7-1))[:10]}")
+        pave2.SetBorderSize(1)
+        pave2.SetFillColor(ROOT.kWhite)
+        pave2.SetTextFont(42)
+
+        pave2.Draw("Same")
+
+        c.Draw()
+        c.SaveAs(f"{OutputSlope}.pdf")
+        '''
+        logging.info(f"Chi2:{chisq}, Prob:{ROOT.TMath.Prob(chisq, 7-1)}")
+
+        # TODO when running:change when checking Pol2, Pol0
+        slopes.append(pars[1])
+        slope_errors.append(errors[1])
+
+    return slopes, slope_errors
 
 
 #--------CODE-----------------
-#TODO: mache dasselbe für antimatter nochmal damit wir später die Differenz fitten können
-#TODO: change Input
+
+#TODO when running: change Input
 if __name__ == "__main__":
     logging.basicConfig(filename='SystematicErrors-31082023.log', level=logging.DEBUG)
     logging.info(f"{datetime.datetime.now()}")
@@ -652,6 +693,8 @@ if __name__ == "__main__":
 
     pt_min = 3.0
     pt_max = 6.0
+    logging.info(f"pt_min: {pt_min}")
+    logging.info(f"pt_max: {pt_max}")
 
     BestBDTEff = 0.5
 
@@ -659,26 +702,52 @@ if __name__ == "__main__":
     nbins = 7
 
     # Outfput file paths
-    OutputSlope = 
+    OutputSlope = "./forSystematicErrors/SlopeOutput"
 
-    BDTEfficiencies = np.linspace(BestBDTEff-10, BestBDTEff+10, 21)
+    BDTEfficiencies = np.linspace(BestBDTEff-0.01, BestBDTEff+0.01, 3)
+    print("BDTEfficiencies:", BDTEfficiencies)
 
     rdfData = ROOT.RDataFrame("df", f"forSystematicErrors/SystematicsTestData").Filter(f"{pt_min} < pt and pt < {pt_max}")
     rdfMC = ROOT.RDataFrame("df", f"forSystematicErrors/SystematicsTestMC").Filter(f"{pt_min} < pt and pt < {pt_max}")
 
-    # extract Number of Hypertritons for Matter and Antimatter
-    ResultsMatter = GetResults(rdfData, rdfMC, matter="true", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies)
-    ResultsAntimatter = GetResults(rdfData, rdfMC, matter="false", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies)
+    # Extract Number of Hypertritons for Matter and Antimatter
+    # ResultsMatter = GetResults(rdfData, rdfMC, matter="true", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins)
+    # ResultsAntimatter = GetResults(rdfData, rdfMC, matter="false", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins)
 
+    with open(f"./forSystematicErrors/ResultsM.json", 'r') as f:
+        ResultsMatter = json.load(f)
 
-    h = ROOT.TH1D("hist", "Nhyp matter-antimatter", 100, -1, 1)
+    with open(f"./forSystematicErrors/ResultsAM.json", 'r') as f:
+        ResultsAntimatter = json.load(f)
+
+    # Create Histogram
+    h = ROOT.TH1D("hist", "Nhyp matter-antimatter", 100, -100, 100)
     h.SetCanExtend(ROOT.TH1.kAllAxes)
-    # h.FillN(10000, BINS, StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size=10000))
-    # TODO: fill the slopes in a histogram
-    slopes, slope_errors = StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size=10000)
+
+    # Fill the slopes into histogram
+    slopes, slope_errors = StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size=100)
+    del ResultsMatter
+    del ResultsAntimatter
+    print(slopes)
     for x in slopes:
         h.Fill(x)
 
-    b = ROOT.RooRealVar("b", "slope", -100, 100, 40)
+    # Define Variables
+    # TODO: Adjust ranges!
+    b = ROOT.RooRealVar("b", "slope", -100, 100)
+    b0 = ROOT.RooRealVar("b0", "mean of Gaussian", 30, -100,  100)
+    sigma = ROOT.RooRealVar("sigma", "sigma of Gaussian", 25, 1,  100,)
 
-    dh = ROOT.RooDataHist("dh", "dh", b, h.GetPtr())
+    dh = ROOT.RooDataHist("dh", "dh", b, h)
+
+    gauss = ROOT.RooGaussian("gauss", "gaussian PDF", b, b0, sigma)
+    gauss.fitTo(dh)
+    
+
+    c1 = ROOT.TCanvas()
+    mframe = b.frame(Title="Slopes Histogram + Gaussian Fit")  # RooPlot
+    dh.plotOn(mframe, ROOT.RooFit.MarkerSize(0), ROOT.RooFit.Binning(80), ROOT.RooFit.Name("dh"))
+    gauss.plotOn(mframe, ROOT.RooFit.Name("gauss"))
+    mframe.Draw()
+    c1.Draw()
+    c1.SaveAs("./forSystematicErrors/SlopeHistogram.pdf")
