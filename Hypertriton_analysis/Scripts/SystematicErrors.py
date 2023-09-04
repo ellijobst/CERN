@@ -181,7 +181,7 @@ def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list
     
     # get RooDataHist
     dh = ROOT.RooDataHist("dh", "dataset with m", m, inv_mass.GetPtr())
-    del inv_mass
+    
 
     mframe = m.frame(Title="m histogram + Fit")
 
@@ -314,6 +314,7 @@ def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list
         c1.SaveAs(f"{Output}.pdf")
     del dh
     del mframe
+    del inv_mass
     
     return Nhyp, error
 
@@ -537,12 +538,12 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
 
     
     # Create the Dataframes and apply cuts
-
+    print("Filter BDTEfficiency = ", BDTEfficiency)
     rdfData_new = rdfData.Filter(f"BDTEfficiency < {BDTEfficiency}")#TODO: plus ggf. Centrality cut
     rdfMC_new = rdfMC.Filter(f"BDTEfficiency < {BDTEfficiency}")#TODO: plus ggf. Centrality cut
     
     # Calculate the Parameters for CB from fitting the MCs
-    results = DetermineCBParametersFromMC(rdfMC_new, OutputMC, pt_min, pt_max, matter, nbins, save_Output=False)
+    results = DetermineCBParametersFromMC(rdfMC_new, OutputMC, pt_min, pt_max, matter, nbins, save_Output=True)
 
 
     print("------------Data SETTINGS-----------")
@@ -554,12 +555,12 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
     print("------------------------------------")
 
     # do it for every model (Pol1, Pol2, Expo)+CB(with and without fixed sigma)
-    ExpoNhyp, ExpoYerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="ExpoCB", save_Output=False)
-    Pol1Nhyp, Pol1Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol1CB", save_Output=False)
-    Pol2Nhyp, Pol2Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol2CB", save_Output=False)  
-    ExpoNhypS, ExpoYerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="ExpoCB", save_Output=False)
-    Pol1NhypS, Pol1YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol1CB", save_Output=False)
-    Pol2NhypS, Pol2YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol2CB", save_Output=False)        
+    ExpoNhyp, ExpoYerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="ExpoCB", save_Output=True)
+    Pol1Nhyp, Pol1Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol1CB", save_Output=True)
+    Pol2Nhyp, Pol2Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol2CB", save_Output=True)  
+    ExpoNhypS, ExpoYerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="ExpoCB", save_Output=True)
+    Pol1NhypS, Pol1YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol1CB", save_Output=True)
+    Pol2NhypS, Pol2YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol2CB", save_Output=True)        
 
 
     Nhyp = [ExpoNhyp, ExpoNhypS, Pol1Nhyp, Pol1NhypS, Pol2Nhyp, Pol2NhypS]
@@ -647,7 +648,7 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
         bins = np.linspace(-1,1,nbins+1)
         centered_bins = (bins[:-1] + bins[1:]) / 2
 
-        # c = ROOT.TCanvas()
+        c = ROOT.TCanvas()
 
         h.Reset()
         h.FillN(7, np.array(centered_bins), np.array(diff) )
@@ -658,7 +659,7 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
         fit_func = fit_func1
 
         h.Fit(fit_func)
-        '''
+        # '''
         h.GetXaxis().SetTitle("cos(#theta_{beam}*)")
         h.GetYaxis().SetTitle("Counts per bin")
 
@@ -674,13 +675,13 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
         legend.AddEntry(fit_func, "linear Fit", "l").SetLineColor(ROOT.kRed)
 
         legend.Draw()
-        '''
+        # '''
     
 
         pars = fit_func.GetParameters()
         errors = fit_func.GetParErrors()
         chisq = fit_func.GetChisquare()
-        '''
+        # '''
         pave2 = ROOT.TPaveText(0.32, 0.8, 0.55, 0.935, "NDC")
         pave2.AddText("#Chi^{2}"+f" = {str(chisq)[:10]}")
         # degrees of freedom is number of bins minus number of fit parameters
@@ -693,7 +694,7 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
 
         c.Draw()
         c.SaveAs(f"./forSystematicErrors/TestingNhypSlopeFit.pdf")
-        '''
+        # '''
         logging.info(f"Chi2:{chisq}, Prob:{ROOT.TMath.Prob(chisq, 7-1)}")
 
         # TODO when running:change when checking Pol2, Pol0
@@ -709,16 +710,16 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
 
 #TODO when running: change Input
 if __name__ == "__main__":
-    logging.basicConfig(filename='SystematicErrors-31082023.log', level=logging.DEBUG)
+    logging.basicConfig(filename='SystematicErrors-01092023.log', level=logging.DEBUG)
     logging.info(f"{datetime.datetime.now()}")
  
 
     pt_min = 3.0
-    pt_max = 6.0
+    pt_max = 6.4
     logging.info(f"pt_min: {pt_min}")
     logging.info(f"pt_max: {pt_max}")
 
-    BestBDTEff = 0.5
+    BestBDTEff = 0.81
 
     #number of bins
     nbins = 7
@@ -726,28 +727,28 @@ if __name__ == "__main__":
     # Outfput file paths
     OutputSlope = "./forSystematicErrors/SlopeOutput"
 
-    BDTEfficiencies = np.linspace(BestBDTEff-0.01, BestBDTEff+0.01, 3)
+    BDTEfficiencies = np.linspace(BestBDTEff-0.00, BestBDTEff+0.00, 1)
     print("BDTEfficiencies:", BDTEfficiencies)
 
-    rdfData = ROOT.RDataFrame("df", f"forSystematicErrors/SystematicsTestData").Filter(f"{pt_min} < pt and pt < {pt_max}")
-    rdfMC = ROOT.RDataFrame("df", f"forSystematicErrors/SystematicsTestMC").Filter(f"{pt_min} < pt and pt < {pt_max}")
+    rdfData = ROOT.RDataFrame("df", f"forSystematicErrors/SystematicsTestData").Filter(f"{pt_min} < pt and pt < {pt_max} and 1 < ct and ct < 35")
+    rdfMC = ROOT.RDataFrame("df", f"forSystematicErrors/SystematicsTestMC").Filter(f"{pt_min} < pt and pt < {pt_max} and 1 < ct and ct < 35")
 
     # Extract Number of Hypertritons for Matter and Antimatter
-    # ResultsMatter = GetResults(rdfData, rdfMC, matter="true", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins)
-    # ResultsAntimatter = GetResults(rdfData, rdfMC, matter="false", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins)
+    ResultsMatter = GetResults(rdfData, rdfMC, matter="true", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins)
+    ResultsAntimatter = GetResults(rdfData, rdfMC, matter="false", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins)
 
-    with open(f"./forSystematicErrors/ResultsM.json", 'r') as f:
-        ResultsMatter = json.load(f)
+#     with open(f"./forSystematicErrors/ResultsM.json", 'r') as f:
+#         ResultsMatter = json.load(f)
 
-    with open(f"./forSystematicErrors/ResultsAM.json", 'r') as f:
-        ResultsAntimatter = json.load(f)
+#     with open(f"./forSystematicErrors/ResultsAM.json", 'r') as f:
+#         ResultsAntimatter = json.load(f)
 
     # Create Histogram
     h = ROOT.TH1D("hist", "Nhyp matter-antimatter", 100, -100, 100)
     h.SetCanExtend(ROOT.TH1.kAllAxes)
 
     # Fill the slopes into histogram
-    slopes, slope_errors = StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size=100)
+    slopes, slope_errors = StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size=100)#TODO: change when running
     del ResultsMatter
     del ResultsAntimatter
     print(slopes)
