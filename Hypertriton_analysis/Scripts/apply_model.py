@@ -305,11 +305,11 @@ def calculate_number_of_background_events(model_file, data_file, bkg_file, tree_
 if __name__ == "__main__":
     
     # input data files
-    data_file = '../Data/DataTable_18_pass3.root'
+    data_file = '../Data/DataTable_18_pass3.root'#NOTE: This file is outdated!!
     MC_file = f'../Data/SignalTable_20g7.root'
     bkg_file = f'../Data/DataTable_18LS_pass3.root'
     
-    pt = [3,4,5,6,7]
+    pt = [4,5]
 
     for i in range(len(pt)-1):
         # specify which dataset to look at
@@ -338,11 +338,11 @@ if __name__ == "__main__":
 
         # calculate efficiency for different BDT values
 
-        efficiency = get_efficiency(MC_file, model_file, BDT_cuts)
-        with open(f"../Output/SignEff/efficiency_{pt_min}_pt_{pt_max}.json", 'w') as f:
-            json.dump(efficiency, f, indent=2) 
+        # efficiency = get_efficiency(MC_file, model_file, BDT_cuts, pt_min, pt_max)
+        # with open(f"../Output/SignEff/efficiency_{pt_min}_pt_{pt_max}.json", 'w') as f:
+        #     json.dump(efficiency, f, indent=2) 
 
-        print('efficiency saved as:', f"efficiency_{pt_min}_pt_{pt_max}.json")
+        # print('efficiency saved as:', f"efficiency_{pt_min}_pt_{pt_max}.json")
 
         with open(f"../Output/SignEff/efficiency_{pt_min}_pt_{pt_max}.json", 'r') as f:
             efficiency = json.load(f)
@@ -350,10 +350,10 @@ if __name__ == "__main__":
 
         # calculate significance for different BDT values
 
-        significance = get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name='DataTable', pt_cut=(pt_min, pt_max), model_file =model_file)
+        # significance = get_significance(efficiency, BDT_cuts, data_file, bkg_file, tree_name='DataTable', pt_cut=(pt_min, pt_max), model_file =model_file)
         
-        with open(f"../Output/SignEff/significance_{pt_min}_pt_{pt_max}.json", 'w') as f:
-            json.dump(significance, f, indent=2) 
+        # with open(f"../Output/SignEff/significance_{pt_min}_pt_{pt_max}.json", 'w') as f:
+        #     json.dump(significance, f, indent=2) 
 
         print('significance saved as:', f"significance_{pt_min}_pt_{pt_max}.json")
 
@@ -363,26 +363,7 @@ if __name__ == "__main__":
         
         # plot efficency over BDT cut
         # TODO: find better way(for sure there is a hipe4ml function!)  
-        plt.figure()
-        plt.plot(
-            BDT_cuts, efficiency,
-            # label=r'$\varepsilon = Number of ^3_\Lambda H_{reco} / Number of ^3_\Lambda H_{gen}$',
-            color='orangered',
-        )
-        plt.xlabel('BDT cut')
-        plt.ylabel(r'Efficiency $\varepsilon $')
-        print('Efficiency saved.')
-
-
-        plt.figure()
-        plt.plot(
-            BDT_cuts, significance,
-            color='orangered',
-        )
-        plt.xlabel('BDT cut')
-        plt.ylabel(r'Significance')
-        print('Significance saved.')
-
+        
 
         plt.figure()
 
@@ -397,6 +378,27 @@ if __name__ == "__main__":
         print(Best_BDT)
         # hier ist es noch der richtige!!
 
+        plt.figure()
+        plt.plot(
+            BDT_cuts, efficiency, 
+            label=f"BestBDTEff = {efficiency[signxeff.index(max(signxeff))]}",
+            color='orangered',
+        )
+        plt.xlabel('BDT cut')
+        plt.axvline(Best_BDT)
+        plt.legend()
+        plt.ylabel(r'Efficiency $\varepsilon $')
+        print('Efficiency saved.')
+
+
+        plt.figure()
+        plt.plot(
+            BDT_cuts, significance,
+            color='orangered',
+        )
+        plt.xlabel('BDT cut')
+        plt.ylabel(r'Significance')
+        print('Significance saved.')
 
         
         plt.plot(
