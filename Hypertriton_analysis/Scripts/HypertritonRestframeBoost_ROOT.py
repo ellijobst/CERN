@@ -11,35 +11,36 @@ cppcode = """
 ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>> BoostToCMHyp(const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& vHyp, const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& v){
     // Get the beta vector for the boost to the center-of-mass frame
     ROOT::Math::DisplacementVector3D boostVector = vHyp.BoostToCM();
-    
+
     // Create a ROOT::Math::Boost object using the beta vector
     ROOT::Math::Boost boost(boostVector);
-    
+
     // Perform the Lorentz boost using the created Boost object
     return boost(v);
-    
 };
 
-float GetCosThetaBeam(const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& v){
-    float px = v.X();
-    float py = v.Y();
-    float pz = v.Z();
-    return pz/sqrt(px*px+py*py+pz*pz);
-};
-
-float GetCosTheta(const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& v, const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& w){
-    ROOT::Math::XYZVector V(v.X(), v.Y(), v.Z());
-    ROOT::Math::XYZVector W(w.X(), w.Y(), w.Z());
-    double s = V.Dot(W);
-    return s/sqrt(V.Mag2()*W.Mag2());
-};
 """
-ROOT.gInterpreter.ProcessLine(cppcode)
+
+# float GetCosThetaBeam(const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& v){
+#     float px = v.X();
+#     float py = v.Y();
+#     float pz = v.Z();
+#     return pz/sqrt(px*px+py*py+pz*pz);
+# }
+
+
+# float GetCosTheta(const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& v, const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& w){
+#     ROOT::Math::XYZVector V(v.X(), v.Y(), v.Z());
+#     ROOT::Math::XYZVector W(w.X(), w.Y(), w.Z());
+#     double s = V.Dot(W);
+#     return s/sqrt(V.Mag2()*W.Mag2());
+# }
+# """
 
 
 # get dataframes and apply preselection
-df_gen = ROOT.RDataFrame("GenTable", "./Data/SignalTable_B_20g7.root").Filter("rapidity < 0.5")
-df_reco = ROOT.RDataFrame("SignalTable", "./Data/SignalTable_B_20g7.root").Filter("Rapidity < 0.5 and PseudoRapidityHe3 < 0.8 and PseudoRapidityPion < 0.8 ")
+# df_gen = ROOT.RDataFrame("GenTable", "./Data/SignalTable_B_20g7.root").Filter("rapidity < 0.5")
+# df_reco = ROOT.RDataFrame("SignalTable", "./Data/SignalTable_B_20g7.root").Filter("Rapidity < 0.5 and PseudoRapidityHe3 < 0.8 and PseudoRapidityPion < 0.8 ")
 
 def HypertritonRestFrameBoost(df_gen, fileName):
 
@@ -90,12 +91,17 @@ def HypertritonRestFrameBoost(df_gen, fileName):
     df_gen.Snapshot(treeName, fileName, {"CosThetaWrtBeam", "BDTEfficiency", "CosThetaWrtpHyp", "centrality", "ct", "Matter", "pt", "Rapidity", "m", "PseudoRapidityHe3"})
 
 if __name__ == "__main__":
+    ROOT.gInterpreter.ProcessLine('#include "MyFunctions.h"')
+
     file_path_rdf =  "DataframeData_*_pt_*_BDTEfficiency.root"
     rdf = ROOT.RDataFrame("df", file_path_rdf)
 
     HypertritonRestFrameBoost(rdf, "DataframeDatawCosTheta")
 
-    # HypertritonRestFrameBoost(rdf, "DataframeDatawCosTheta")
+
+    file_path_rdfMC =  "DataframeMC_*_pt_*_BDTEfficiency.root"
+    rdf = ROOT.RDataFrame("df", file_path_rdfMC)
+    HypertritonRestFrameBoost(rdf, "DataframeMCwCosTheta")
 
 
 
