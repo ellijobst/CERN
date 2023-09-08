@@ -6,6 +6,8 @@ import logging
 import datetime
 
 
+# TODO: add option to not save output, continue!!
+
 #--------------FUNCTIONS--------------
 
 # These two function determine the CB parameters from the MC fit
@@ -128,7 +130,7 @@ def DetermineCBParametersFromMC(rdfMC, Output,  pt_min, pt_max, matter, nbins, s
         c2.Draw()
         c2.SaveAs(f"{Output}.pdf(")
 
-
+        del c2
     # create plots with signal fit-------------------------------------------------
     results = [CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, pt_min, pt_max, matter, Output, nbins, save_Output) for i in range(nbins)]
     
@@ -137,24 +139,26 @@ def DetermineCBParametersFromMC(rdfMC, Output,  pt_min, pt_max, matter, nbins, s
     elif matter == "false":
         matter3 = "AM"
 
-    with open(f"./forSystematicErrors/FixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'w') as f:
+    with open(f"./forSystematicErrors/MCGausFixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'w') as f:
         json.dump(results, f, indent=2) 
 
     logging.info("MC fit parameters saved.")
-    del c2
+   
     del rdf
     del cos_theta
 
     return results
 
 # these two functions obtain the Number of Hypertriton Candidates from the Data
-def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list, lam, lin, quad, frac, nbins, cmin, matter, rdf, pt_min, pt_max, Output, model, fitsigma, save_Output):
+def CreatePlots(i, alphal_list, alphal_err, alphar_list, alphar_err, nl_list, nl_err, nr_list, nr_err, m, m0, sigma_list, sigma_err, lam, lin, quad, frac, nbins, cmin, matter, rdf, pt_min, pt_max, Output, model, fitsigma, save_Output):
+
+    np.random.seed(1773)
     
-    # Fix parameters based on MC fit
-    alphal = ROOT.RooRealVar("alphal", "alpha L", alphal_list[i], alphal_list[i], alphal_list[i])
-    nl = ROOT.RooRealVar("nl", "n L", nl_list[i], nl_list[i], nl_list[i])
-    alphar = ROOT.RooRealVar("alphar", "alpha right", alphar_list[i], alphar_list[i], alphar_list[i])
-    nr = ROOT.RooRealVar("nr", "n right", nr_list[i], nr_list[i], nr_list[i])
+    # Draw Parameters from a normal Distribution based on the MC Fit Results
+    alphal = ROOT.RooRealVar("alphal", "alpha L", np.random.normal(loc=alphal_list[i], scale=alphal_err[i], size=1))
+    nl = ROOT.RooRealVar("nl", "n L", np.random.normal(loc=nl_list[i], scale=nl_err[i], size=1))
+    alphar = ROOT.RooRealVar("alphar", "alpha right", np.random.normal(loc=alphar_list[i], scale=alphar_err[i], size=1))
+    nr = ROOT.RooRealVar("nr", "n right", np.random.normal(loc=nr_list[i], scale=nr_err[i], size=1))
 
 
     if fitsigma == True:
@@ -162,7 +166,7 @@ def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list
         sigma = ROOT.RooRealVar("sigma", "sigma", 0.001,  0.0001, 0.002) #standard deviation of CB
     else:
         # sigma is determined by MC fit
-        sigma = ROOT.RooRealVar("sigma", "sigma", sigma_list[i], sigma_list[i], sigma_list[i])
+        sigma = ROOT.RooRealVar("sigma", "sigma", np.random.normal(loc=sigma_list[i], scale=sigma_err[i], size=1))
     
     # Define PDF for Fit
     CB = ROOT.RooCrystalBall("CB", "Crystal Ball PDF", m, m0, sigma, alphal, nl, alphar, nr)
@@ -327,7 +331,7 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
         fitsigma2 = "S"
 
     BDTEff = "%.2f" %BDTEfficiency
-    Output= f"./forSystematicErrors/RooFit{model}{fitsigma2}{pt_min}pt{pt_max}centr{cmin}_BDT{BDTEff}_{matter3}"
+    Output= f"./forSystematicErrors/MCGausRooFit{model}{fitsigma2}{pt_min}pt{pt_max}centr{cmin}_BDT{BDTEff}_{matter3}"
     # with open(f"./forSystematicErrors/FixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'r') as f:
     #         results = json.load(f)
     
@@ -376,7 +380,7 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
 
 
     # create plots with signal fit-------------------------------------------------
-    results = [CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list, lam, lin, quad, frac, nbins, cmin, matter, rdf, pt_min, pt_max, Output, model, fitsigma, save_Output) for i in range(nbins)]
+    results = [CreatePlots(i, alphal_list, alphal_err, alphar_list, alphar_err, nl_list, nl_err, nr_list, nr_err, m, m0, sigma_list, sigma_err, lam, lin, quad, frac, nbins, cmin, matter, rdf, pt_min, pt_max, Output, model, fitsigma, save_Output) for i in range(nbins)]
     number_of_Hypertritons = [results[i][0] for i in range(nbins)]
     errorbars = [results[i][1] for i in range(nbins)]
 
@@ -506,9 +510,9 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
     #save number of hypertritons after correction in file
     Nhyp_corrected = np.array(number_of_Hypertritons)/np.array(count)
     Nhyp_corrected = Nhyp_corrected.tolist()
-    with open(f"./forSystematicErrors/NhypCorrected{pt_min}pt{pt_max}centr{cmin}_{matter3}.json", 'w') as f:
+    with open(f"./forSystematicErrors/MCGausNhypCorrected{pt_min}pt{pt_max}centr{cmin}_{matter3}.json", 'w') as f:
         json.dump(Nhyp_corrected, f, indent=2) 
-    with open(f"./forSystematicErrors/NhypCorrectedErr{pt_min}pt{pt_max}centr{cmin}_{matter3}.json", 'w') as f:
+    with open(f"./forSystematicErrors/MCGausNhypCorrectedErr{pt_min}pt{pt_max}centr{cmin}_{matter3}.json", 'w') as f:
         json.dump(yerr, f, indent=2) 
 
    
@@ -524,7 +528,7 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
 
 
     # Specify Output File Paths
-    OutputMC= f"./forSystematicErrors/RooFitCB{pt_min}pt{pt_max}_BDT{BDTEfficiency}_{matter2}"
+    OutputMC= f"./forSystematicErrors/MCGausRooFitCB{pt_min}pt{pt_max}_BDT{BDTEfficiency}_{matter2}"
    
     
     print("------------MC SETTINGS-------------")
@@ -539,7 +543,7 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
     rdfMC_new = rdfMC.Filter(f"BDTEfficiency < {BDTEfficiency}")#TODO: plus ggf. Centrality cut
     
     # Calculate the Parameters for CB from fitting the MCs
-    results = DetermineCBParametersFromMC(rdfMC_new, OutputMC, pt_min, pt_max, matter, nbins, save_Output=True)
+    results = DetermineCBParametersFromMC(rdfMC_new, OutputMC, pt_min, pt_max, matter, nbins, save_Output=False)
 
 
     print("------------Data SETTINGS-----------")
@@ -608,7 +612,7 @@ def GetResults(rdfData, rdfMC, matter, pt_min, pt_max, BDTEfficiencies, nbins, c
         Results["bin5yerr"] += [x[5] for x in Yerr]
         Results["bin6yerr"] += [x[6] for x in Yerr]
 
-    with open(f"./forSystematicErrors/Results{matter2}.json", 'w') as f:
+    with open(f"./forSystematicErrors/MCGausResults{matter2}.json", 'w') as f:
             json.dump(Results, f, indent=2) 
     del Nhyp
     del Yerr
@@ -690,7 +694,7 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
         pave2.Draw("Same")
 
         c.Draw()
-        c.SaveAs(f"./forSystematicErrors/TestingNhypSlopeFit.pdf")
+        c.SaveAs(f"./forSystematicErrors/MCGausTestingNhypSlopeFit.pdf")
         '''
         logging.info(f"Chi2:{chisq}, Prob:{ROOT.TMath.Prob(chisq, 7-1)}")
 
@@ -699,9 +703,9 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
         slope_errors.append(errors[1])
 
     del h
-    with open(f"./forSystematicErrors/Slopes{pt_min}pt{pt_max}centr{cmin}.json", 'w') as f:
+    with open(f"./forSystematicErrors/MCGausSlopes{pt_min}pt{pt_max}centr{cmin}.json", 'w') as f:
         json.dump(slopes, f, indent=2) 
-    with open(f"./forSystematicErrors/SlopesErr{pt_min}pt{pt_max}centr{cmin}.json", 'w') as f:
+    with open(f"./forSystematicErrors/MCGausSlopesErr{pt_min}pt{pt_max}centr{cmin}.json", 'w') as f:
         json.dump(slope_errors, f, indent=2) 
 
     return slopes, slope_errors
@@ -729,7 +733,7 @@ if __name__ == "__main__":
     cmin = 0 
 
     # Outfput file paths
-    OutputSlope = "./forSystematicErrors/SlopeOutput"
+    OutputSlope = "./forSystematicErrors/MCGausSlopeOutput"
 
     BDTEfficiencies = np.linspace(BestBDTEff-0.1, BestBDTEff+0.1, 21)
     print("BDTEfficiencies:", BDTEfficiencies)
@@ -738,26 +742,26 @@ if __name__ == "__main__":
     rdfMC = ROOT.RDataFrame("df", f"forSystematicErrors/SystematicsTestMC").Filter(f"{pt_min} < pt and pt < {pt_max} and 1 < ct and ct < 35")
 
     # Extract Number of Hypertritons for Matter and Antimatter
-    # ResultsMatter = GetResults(rdfData, rdfMC, matter="true", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins, cmin=cmin)
-    # ResultsAntimatter = GetResults(rdfData, rdfMC, matter="false", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins, cmin=cmin)
+    ResultsMatter = GetResults(rdfData, rdfMC, matter="true", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins, cmin=cmin)
+    ResultsAntimatter = GetResults(rdfData, rdfMC, matter="false", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins, cmin=cmin)
 
-    with open(f"./forSystematicErrors/ResultsM.json", 'r') as f:
-        ResultsMatter = json.load(f)
+    # with open(f"./forSystematicErrors/MCGausResultsM.json", 'r') as f:
+    #     ResultsMatter = json.load(f)
 
-    with open(f"./forSystematicErrors/ResultsAM.json", 'r') as f:
-        ResultsAntimatter = json.load(f)
+    # with open(f"./forSystematicErrors/MCGausResultsAM.json", 'r') as f:
+    #     ResultsAntimatter = json.load(f)
 
     # Create Histogram
     h = ROOT.TH1D("hist", "Nhyp matter-antimatter", 100, -100, 100)
     h.SetCanExtend(ROOT.TH1.kAllAxes)
 
     # Fill the slopes into histogram
-    # slopes, slope_errors = StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size=10000, cmin=cmin)#TODO: change when running
+    slopes, slope_errors = StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size=10000, cmin=cmin)#TODO: change when running
 
-    with open(f"./forSystematicErrors/Slopes{pt_min}pt{pt_max}centr{cmin}.json", 'r') as f:
-        slopes = json.load(f)
-    with open(f"./forSystematicErrors/SlopesErr{pt_min}pt{pt_max}centr{cmin}.json", 'r') as f:
-        slope_errors = json.load(f)
+    # with open(f"./forSystematicErrors/MCGausSlopes{pt_min}pt{pt_max}centr{cmin}.json", 'r') as f:
+    #     slopes = json.load(f)
+    # with open(f"./forSystematicErrors/MCGausSlopesErr{pt_min}pt{pt_max}centr{cmin}.json", 'r') as f:
+    #     slope_errors = json.load(f)
 
     del ResultsMatter
     del ResultsAntimatter
@@ -767,9 +771,9 @@ if __name__ == "__main__":
 
     # Define Variables
     # TODO: Adjust ranges!
-    b = ROOT.RooRealVar("b", "slope", -100, 100)
-    b0 = ROOT.RooRealVar("b0", "mean of Gaussian", 30, -100,  100)
-    sigma = ROOT.RooRealVar("sigma", "sigma of Gaussian", 25, 1,  100,)
+    b = ROOT.RooRealVar("b", "slope", -100, 150)
+    b0 = ROOT.RooRealVar("b0", "mean of Gaussian", 20, -100,  150)
+    sigma = ROOT.RooRealVar("sigma", "sigma of Gaussian", 50, 1,  100,)
 
     dh = ROOT.RooDataHist("dh", "dh", b, h)
 
@@ -779,7 +783,7 @@ if __name__ == "__main__":
 
     c1 = ROOT.TCanvas()
     mframe = b.frame(Title="Slopes Histogram + Gaussian Fit")  # RooPlot
-    dh.plotOn(mframe, ROOT.RooFit.MarkerSize(0), ROOT.RooFit.Binning(80), ROOT.RooFit.Name("dh"))
+    dh.plotOn(mframe, ROOT.RooFit.MarkerSize(0), ROOT.RooFit.Binning(30), ROOT.RooFit.Name("dh"))
     gauss.plotOn(mframe, ROOT.RooFit.Name("gauss"))
 
     pave = ROOT.TPaveText(0.78, 0.75, 0.95, 0.935, "NDC")
@@ -793,4 +797,4 @@ if __name__ == "__main__":
     pave.Draw("same")
 
     c1.Draw()
-    c1.SaveAs("./forSystematicErrors/SlopeHistogram.pdf")
+    c1.SaveAs("./forSystematicErrors/MCGausSlopeHistogram.pdf")
