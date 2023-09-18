@@ -19,23 +19,22 @@ ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>> BoostToCMHyp(const ROOT
     return boost(v);
 };
 
+// Get Cos(theta*) w.r.t. Beam Axis
+float GetCosThetaBeam(const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& v){
+    float px = v.X();
+    float py = v.Y();
+    float pz = v.Z();
+    return pz/sqrt(px*px+py*py+pz*pz);
+}
+
+// Get Cos(theta*) w.r.t. an arbitrary Axis
+float GetCosTheta(const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& v, const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& w){
+    ROOT::Math::XYZVector V(v.X(), v.Y(), v.Z());
+    ROOT::Math::XYZVector W(w.X(), w.Y(), w.Z());
+    double s = V.Dot(W);
+    return s/sqrt(V.Mag2()*W.Mag2());
+}
 """
-
-# float GetCosThetaBeam(const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& v){
-#     float px = v.X();
-#     float py = v.Y();
-#     float pz = v.Z();
-#     return pz/sqrt(px*px+py*py+pz*pz);
-# }
-
-
-# float GetCosTheta(const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& v, const ROOT::Math::LorentzVector<ROOT::Math::PxPyPzM4D<double>>& w){
-#     ROOT::Math::XYZVector V(v.X(), v.Y(), v.Z());
-#     ROOT::Math::XYZVector W(w.X(), w.Y(), w.Z());
-#     double s = V.Dot(W);
-#     return s/sqrt(V.Mag2()*W.Mag2());
-# }
-# """
 
 
 # get dataframes and apply preselection
@@ -46,7 +45,7 @@ def HypertritonRestFrameBoost(df_gen, fileName):
 
     # specify masses of decay daughters
     mHe3 = 2.80839 #GeV
-    mPi = 0.139570 #Ge
+    mPi = 0.139570 #GeV
 
     # define lorentzvectors
     df_gen = df_gen.Define("LorentzvectorLABHe3", f"ROOT::Math::PxPyPzMVector(pxHe3, pyHe3, pzHe3, {mHe3})")
@@ -59,7 +58,7 @@ def HypertritonRestFrameBoost(df_gen, fileName):
 
     # get energies
     df_gen = df_gen.Define("EHe3", f"sqrt(pxHe3*pxHe3+pyHe3*pyHe3+pzHe3*pzHe3+{mHe3}*{mHe3})")
-    df_gen = df_gen.Define("EPi", f"sqrt(pxPi*pxPi+pyPi*pyPi+pzPi*pzPi+{mPi*mPi})")
+    df_gen = df_gen.Define("EPi", f"sqrt(pxPi*pxPi+pyPi*pyPi+pzPi*pzPi+{mPi}*{mPi})")
     df_gen = df_gen.Define("EHyp", "EPi + EHe3")
 
     # get mass hyp
