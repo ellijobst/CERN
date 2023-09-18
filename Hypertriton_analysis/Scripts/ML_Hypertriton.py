@@ -151,7 +151,7 @@ def ML_Hypertriton(dataH,bkgH,promptH,filename, pt_min, pt_max, optuna, output):
 
 if __name__ == "__main__":
     #specify the pt ranges we want to take a look at
-    pt = [2,3,4,5,6,9]
+    pt = [3.0, 6.4]
 
     for i in range(len(pt)-1):
         # specify which dataset to look at
@@ -170,7 +170,7 @@ if __name__ == "__main__":
                             preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
         dataH = dataH.get_subset(size=170001)
 
-        promptH.get_handler_from_large_file(file_name='../Data/SignalTable_20g7.root',tree_name='SignalTable', 
+        promptH.get_handler_from_large_file(file_name='../Data/SignalTable_B_20g7.root',tree_name='SignalTable', 
                             preselection =f'{pt_min} < pt < {pt_max} and 1 < ct < 35')
         promptH = promptH.get_subset(size=5667)
         
