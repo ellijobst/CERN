@@ -29,11 +29,12 @@ for pt2 in range(4,18,1):
     pt=pt2/2
     print(pt)
     
+    
     # Define input file names 
     # NOTE: these Files had the model trained and then applied to it for 0.5GeV pt ranges
 #     filenamebkg = f"DataframesForBDTEfficiency/DataframeBkg_{pt}_pt_{pt+0.5}.root"
-    filename = f"Dataframe_{pt}_pt_{pt+0.5}.root"
-    filenamedata = f"DataframeMC_{pt}_pt_{pt+0.5}.root"
+    filename = f"DataframeMCEPangle_3.0_pt_6.4_3.root"
+    filenamedata = f"DataframeDataEPangle_3.0_pt_6.4_3.root"
     
     # Create Dataframes
     rdf = ROOT.RDataFrame("df", filename)
@@ -46,7 +47,6 @@ for pt2 in range(4,18,1):
     
     # define Histogram that converts BDTScore into BDTEfficiency with MCs
     hist = rdf.Histo1D(("BDTScoreHist", "BDT Score", bins, -15, 15),"model_output")
-    del rdf
     hist_cum = hist.GetCumulative()
     maximum = hist_cum.GetMaximum()
     hist_cum.Scale(1/(maximum))
@@ -59,17 +59,21 @@ for pt2 in range(4,18,1):
 #     h = hist_cum
 
     # Define BDTEfficiencies for the Dataframes
-#     rdf = rdf.Define("BDTEfficiency", ROOT.GetBDTEfficiency(h), ["model_output"])
+    # rdf = rdf.Define("BDTEfficiency", ROOT.GetBDTEfficiency(hist_cum), ["model_output"])
     rdfdata = rdfdata.Define("BDTEfficiency", ROOT.GetBDTEfficiency(hist_cum), ["model_output"])
-#     rdfbkg = rdfbkg.Define("BDTEfficiency", ROOT.GetBDTEfficiency(h), ["model_output"])
+    # rdfbkg = rdfbkg.Define("BDTEfficiency", ROOT.GetBDTEfficiency(hist_cum), ["model_output"])
     
     # Cut on BDTEfficiency and save modified DataFrames to .root file
     treeName = "df"
-#     fileName = f"DataframesForBDTEfficiency/DataframeNew_{pt}_pt_{pt+0.5}_BDTEfficiency.root"
+
+    # fileName = f"DataframeMCEPangle_3.0_pt_6.4_BDTEfficiency_3.root"
 #     fileNamebkg = f"DataframesForBDTEfficiency/DataframeBkgNew_{pt}_pt_{pt+0.5}_BDTEfficiency.root"
-    fileNamedata = f"DataframeMC_{pt}_pt_{pt+0.5}_BDTEfficiency.root"
+    fileNamedata = f"DataframeDataEPangle_3.0_pt_6.4_BDTEfficiency_3.root"
     
-#     rdf = rdf.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, fileName, {"pt", "Matter",  "centrality", "ct", "m", "model_output", "BDTEfficiency"})
+    # rdf = rdf.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, fileName)
     rdfdata = rdfdata.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, fileNamedata)
 #     rdfbkg = rdfbkg.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, fileNamebkg, {"pt", "Matter",  "centrality", "ct", "m", "model_output", "BDTEfficiency"})
+
+    print("Root df saved.")
+    break
     

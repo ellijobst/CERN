@@ -9,7 +9,7 @@ import datetime
 #--------------FUNCTIONS--------------
 
 # These two function determine the CB parameters from the MC fit
-def CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, pt_min, pt_max, matter, Output, nbins, save_Output):
+def CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, cmin, cmax, matter, Output, nbins, save_Output):
     '''
     This function is fitting a RooCrystalBall Shape on MC SignalTable and storing the fit parameters in a .json file, and plots in .pdf file.
     Returns: fit parameter 
@@ -20,15 +20,15 @@ def CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, pt_min
         c1 = ROOT.TCanvas()
         mframe = m.frame(Title="m histogram + Fit")
     
-   
-    bins = np.linspace(-1,1,nbins+1)
+    # pt bins
+    # bins = np.linspace(2,6,nbins+1)
+    bins = np.array([2,3,4,6])
+
 
     # create histogram
-    # inv_mass_df = rdf.Filter(f"{bins[i]} < CosThetaWrtBeam and CosThetaWrtBeam < {bins[i+1]} and Matter == {matter} ")
-    # inv_mass = inv_mass_df.Histo1D(("InvariantMassHistogram", f"{pt_min}"+"<p_{T}<"+f"{pt_max}, {str(bins[i])[:5]}"+"< cos(#theta_{beam})<"+f"{str(bins[i+1])[:5]}; m[GeV]", 80, 2.96, 3.04),"m")
-    inv_mass = rdf.Filter(f"{bins[i]} < CosThetaWrtBeam and CosThetaWrtBeam < {bins[i+1]} and Matter == {matter} ")\
-        .Histo1D(("InvariantMassHistogram", f"{pt_min}"+"<p_{T}<"+f"{pt_max}, {str(bins[i])[:5]}"+"< cos(#theta_{beam})<"+f"{str(bins[i+1])[:5]}; m[GeV]", binnumber, 2.96, 3.04),"m")
-    
+    inv_mass = rdf.Filter(f"{bins[i]} < pt and pt < {bins[i+1]} and Matter == {matter} and {cmin} < centrality and centrality < {cmax}")\
+        .Histo1D(("InvariantMassHistogram", f"{cmin}"+"< centrality <"+f"{cmax}, {str(bins[i])[:5]}"+"< pt <"+f"{str(bins[i+1])[:5]}; m[GeV]", binnumber, 2.96, 3.04),"m")
+
     # inv_mass_copy = inv_mass.Clone()
     
     # get RooDataHist
@@ -94,7 +94,7 @@ def CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, pt_min
 
     return nl.getVal(), nr.getVal(), alphal.getVal(), alphar.getVal(), nl.getError(), nr.getError(), alphal.getError(), alphar.getError(), sigma.getVal(), sigma.getError()
 
-def DetermineCBParametersFromMC(rdfMC, Output,  pt_min, pt_max, matter, nbins, save_Output):
+def DetermineCBParametersFromMC(rdfMC, Output,  cmin, cmax, matter, nbins, save_Output):
     '''
     This Function Defines the Variables and PDF for the Fit and stores the obtained Parameters for each bin in a list.
     Needs to be done for Matter and Antimatter and each BDTEfficiency
@@ -123,21 +123,21 @@ def DetermineCBParametersFromMC(rdfMC, Output,  pt_min, pt_max, matter, nbins, s
     # plots cos(theta*) distribution-----------------------------------------------
     if save_Output == True:
         c2 = ROOT.TCanvas()
-        cos_theta = rdf.Filter(f"Matter == {matter}").Histo1D(("CosThetaHistogram", "cos(theta*)_wrt_beam", 100, -1, 1),"CosThetaWrtBeam")
+        cos_theta = rdf.Filter(f"Matter == {matter}").Histo1D(("CosThetaHistogram", "pt", 100, 2, 6),"pt")
         cos_theta.Draw()
         c2.Draw()
         c2.SaveAs(f"{Output}.pdf(")
 
 
     # create plots with signal fit-------------------------------------------------
-    results = [CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, pt_min, pt_max, matter, Output, nbins, save_Output) for i in range(nbins)]
+    results = [CreatePlotsMC(i, fit_func, rdf, m, m0, sigma, alphal, nl, alphar, nr, cmin, cmax, matter, Output, nbins, save_Output) for i in range(nbins)]
     
     if matter == "true":
         matter3 = "M"
     elif matter == "false":
         matter3 = "AM"
 
-    with open(f"../Output/EPCutOutput/FixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'w') as f:
+    with open(f"../Output/EPCutOutput/FixedCBParamsCentr{cmin}-{cmax}_{matter3}.json", 'w') as f:
         json.dump(results, f, indent=2) 
 
     logging.info("MC fit parameters saved.")
@@ -170,10 +170,11 @@ def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list
     pol1 = ROOT.RooPolynomial("Pol1", "linear", m, ROOT.RooArgList(lin))
     pol2 = ROOT.RooPolynomial("Pol2", "quadratic", m, ROOT.RooArgList(lin, quad))
 
-    bins = np.linspace(-1,1,nbins+1)
+    # bins = np.linspace(2,6,nbins+1)
+    bins = np.array([2,3,4,6])
 
     # create histogram
-    inv_mass = rdf.Filter(f"{bins[i]} < CosThetaWrtBeam and CosThetaWrtBeam < {bins[i+1]} and Matter == {matter}  and centrality > {cmin} ")\
+    inv_mass = rdf.Filter(f"{bins[i]} < pt and pt < {bins[i+1]} and Matter == {matter} and {cmin} < centrality and centrality < {cmax}")\
         .Histo1D(("InvariantMassHistogram", f"{pt_min}"+"<p_{T}<"+f"{pt_max}, {str(bins[i])[:5]}"+"< cos(#theta_{beam})<"+f"{str(bins[i+1])[:5]}; m[GeV]", binnumber, 2.96, 3.04),"m")
     # inv_mass_copy = inv_mass.Clone()
     
@@ -316,7 +317,7 @@ def CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list
     
     return Nhyp, error
 
-def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="ExpoCB", save_Output=False):
+def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, cmin, cmax, matter, nbins, fitsigma=True, model="ExpoCB", save_Output=False):
     #parameters from Fitting MCs with RooCrystalBall
     if matter == "true":
             matter3 = "M"
@@ -327,7 +328,7 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
         fitsigma2 = "S"
 
     BDTEff = "%.2f" %BDTEfficiency
-    Output= Outputdir + f"RooFit{model}{fitsigma2}{pt_min}pt{pt_max}centr{cmin}_BDT{BDTEff}_{matter3}"#TODO: mache es wie in cpp file wo man das ende in der config bestimmt und dann einfach anhängt
+    Output= Outputdir + f"RooFit{model}{fitsigma2}Centr{cmin}-{cmax}_BDT{BDTEff}_{matter3}"#TODO: mache es wie in cpp file wo man das ende in der config bestimmt und dann einfach anhängt
     # with open(f"../Output/EPCutOutput/FixedCBParams{pt_min}pt{pt_max}_{matter3}.json", 'r') as f:
     #         results = json.load(f)
     
@@ -363,13 +364,14 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
     rdf = rdfData
 
     # i goes from 0 to 6, since there are 7 bins
-    bins = np.linspace(-1,1,nbins+1)
+    # bins = np.linspace(2,6,nbins+1)
+    bins = np.array([2,3,4,6])
         
 
     # plots cos(theta*) distribution-----------------------------------------------
     if save_Output == True:
         c2 = ROOT.TCanvas()
-        cos_theta = rdf.Filter(f"Matter == {matter}").Histo1D(("CosThetaHistogram", "cos(theta*)_wrt_beam", 100, -1, 1),"CosThetaWrtBeam")
+        cos_theta = rdf.Filter(f"Matter == {matter}").Histo1D(("CosThetaHistogram", "pt distribution", 100, 2, 6),"pt")
         cos_theta.Draw()
         # s = cos_theta.FindObject("stats")
         # s.SetX1NDC(0.7)
@@ -379,7 +381,7 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
 
 
     # create plots with signal fit-------------------------------------------------
-    results = [CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list, lam, lin, quad, frac, nbins, cmin, matter, rdf, pt_min, pt_max, Output, model, fitsigma, save_Output) for i in range(nbins)]
+    results = [CreatePlots(i, alphal_list, alphar_list, nl_list, nr_list, m, m0, sigma_list, lam, lin, quad, frac, nbins, cmin, matter, rdf, cmin, cmax, Output, model, fitsigma, save_Output) for i in range(nbins)]
     number_of_Hypertritons = [results[i][0] for i in range(nbins)]
     errorbars = [results[i][1] for i in range(nbins)]
 
@@ -389,7 +391,7 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
         centered_bins = (bins[:-1] + bins[1:]) / 2
         
         
-        h_raw = ROOT.TH1D("hist raw", f"Number of Hypertritons(raw) for {pt_min}"+"<p_{T}<"+f"{pt_max}; cos(#theta*) wrt beam", nbins, -1, 1)
+        h_raw = ROOT.TH1D("hist raw", f"Number of Hypertritons(raw) for {cmin}"+"<centrality<"+f"{cmax}; pt; counts/bin", nbins, 2, 6)
         h_raw.FillN(nbins, np.array(centered_bins), np.array(number_of_Hypertritons) )
         for i in range(1,nbins+1,1):
             h_raw.SetBinError(i, errorbars[i-1])
@@ -421,11 +423,11 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
         
     # NOTE: here the and must be used otherwise it will be interpreted wrong!!
     # NOTE: in the original files it is "matter" for gen, "Matter" for reco. In the *_cut.csv files it is "Matter" for both!
-    rdf_gen_cut = rdf_gen.Filter(f"{pt_min} < pt and pt < {pt_max} and Matter == {matter2} and Centrality > {cmin}")
-    rdf_reco_cut = rdf_reco.Filter(f"{pt_min} < pt and pt < {pt_max} and Matter == {matter2} and Centrality > {cmin}")
+    rdf_gen_cut = rdf_gen.Filter(f"{cmin} < Centrality and Centrality < {cmax} and Matter == {matter2} and 2 < pt and pt < 6")
+    rdf_reco_cut = rdf_reco.Filter(f"{cmin} < Centrality and Centrality < {cmax} and Matter == {matter2} and 2 < pt and pt < 6")
 
-    pthistgen = rdf_gen_cut.Histo1D(("ptHistogram", "p_{T} Distribution for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}"+"; p_{T}[GeV]", 30, pt_min, pt_max),"pt")
-    pthistreco = rdf_reco_cut.Histo1D(("ptHistogram", "p_{T} Distribution for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}"+"; p_{T}[GeV]", 30, pt_min, pt_max),"pt")
+    pthistgen = rdf_gen_cut.Histo1D(("ptHistogram", "p_{T} Distribution for"+f"{cmin}"+"< Centrality <"+f"{cmax}"+"; p_{T}[GeV]", 30, 2, 6),"pt")
+    pthistreco = rdf_reco_cut.Histo1D(("ptHistogram", "p_{T} Distribution for"+f"{cmin}"+"< Centrality <"+f"{cmax}"+"; p_{T}[GeV]", 30, 2, 6),"pt")
         
     if save_Output == True:
         pt_distr = ROOT.TCanvas()
@@ -450,8 +452,8 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
 
     
     #plot efficiency for whole pt range -------------------------------------------
-    histgen = rdf_gen_cut.Histo1D(("cosThetaHistogram", "Cos(#theta_{beam}) Distribution for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}"+"; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
-    histreco = rdf_reco_cut.Histo1D(("cosThetaHistogram", "Cos(#theta_{beam}) Distribution for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}"+"; cos(#theta_{beam})", nbins, -1, 1),"cos_theta_beam")
+    histgen = rdf_gen_cut.Histo1D(("cosThetaHistogram", "p_{T} Distribution for"+f"{cmin}"+"< Centrality <"+f"{cmax}"+"; p_{T}", nbins, 2, 6),"pt")
+    histreco = rdf_reco_cut.Histo1D(("cosThetaHistogram", "p_{T} Distribution for"+f"{cmin}"+"< Centrality <"+f"{cmax}"+"; p_{T}", nbins, 2, 6),"pt")
 
     if save_Output == True:
         histgen.SetFillColor(ROOT.kBlue-10)
@@ -472,7 +474,7 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
     if save_Output == True:
         d = ROOT.TCanvas()
         efficiency.Draw("E")
-        efficiency.SetTitle("Detector Efficiency for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max}")
+        efficiency.SetTitle("Detector Efficiency for"+f"{cmin}"+"<centrality<"+f"{cmax}")
         efficiency.GetYaxis().SetTitle("Efficiency")
         efficiency.GetYaxis().SetRangeUser(0.2, 0.8)
         d.Draw()
@@ -489,8 +491,7 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
         # c_Eff = ROOT.TCanvas()
         centered_bins = (bins[:-1] + bins[1:]) / 2
 
-        h_cor = ROOT.TH1D("hist corrected", "Number of Hypertritons(corrected) for"+f"{pt_min}"+"<p_{T}<"+f"{pt_max};"+" cos(#theta_{beam})", nbins, -1, 1)
-        
+        h_cor = ROOT.TH1D("hist corrected", "Number of Hypertritons(corrected) for"+f"{cmin}"+"< centrality <"+f"{cmax};"+" p_{T}", nbins, 2, 6)
         h_cor.FillN(nbins, np.array(centered_bins), np.array(number_of_Hypertritons)/np.array(count) )
         for i in range(1,nbins+1,1):
             h_cor.SetBinError(i, yerr[i-1])
@@ -508,16 +509,16 @@ def GetNHypertritonCandidates(rdfData, results, BDTEfficiency, pt_min, pt_max, c
     #save number of hypertritons after correction in file
     Nhyp_corrected = np.array(number_of_Hypertritons)/np.array(count)
     Nhyp_corrected = Nhyp_corrected.tolist()
-    with open(Outputdir + f"NhypCorrected{pt_min}pt{pt_max}centr{cmin}_{matter3}.json", 'w') as f:
+    with open(Outputdir + f"NhypCorrectedCentr{cmin}-{cmax}_{matter3}.json", 'w') as f:
         json.dump(Nhyp_corrected, f, indent=2) 
-    with open(Outputdir + f"NhypCorrectedErr{pt_min}pt{pt_max}centr{cmin}_{matter3}.json", 'w') as f:
+    with open(Outputdir + f"NhypCorrectedErrCentr{cmin}-{cmax}_{matter3}.json", 'w') as f:
         json.dump(yerr, f, indent=2) 
 
    
     return Nhyp_corrected, yerr
     
 # These functions are used for the rest
-def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, matter, cmin, inplane, save_output):
+def ProcessForOneBDTEff(rdfData, rdfMC, cmin, cmax, BDTEfficiency, nbins, matter, inplane, save_output):
     #-------------SETTINGS------------------
     # TODO: Add centrality cut, ggf.
     matter2 = "AM"
@@ -526,12 +527,12 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
 
 
     # Specify Output File Paths
-    OutputMC= Outputdir + f"RooFitCB{pt_min}pt{pt_max}_BDT{BDTEfficiency}_{matter2}"
+    OutputMC= Outputdir + f"RooFitCBcentr{cmin}-{cmax}_BDT{BDTEfficiency}_{matter2}"
    
     
     print("------------MC SETTINGS-------------")
     print(f"  Matter:             {matter}")
-    print(f"  Selected pT range:  {pt_min}<pt<{pt_max}")
+    print(f"  Selected Centrality range:  {cmin}-{cmax}%")
     print("------------------------------------")
 
     
@@ -541,24 +542,23 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
     rdfMC_new = rdfMC.Filter(f"BDTEfficiency < {BDTEfficiency}")#TODO: plus ggf. Centrality cut
     
     # Calculate the Parameters for CB from fitting the MCs
-    results = DetermineCBParametersFromMC(rdfMC_new, OutputMC, pt_min, pt_max, matter, nbins, save_Output=save_output)
+    results = DetermineCBParametersFromMC(rdfMC_new, OutputMC, cmin, cmax, matter, nbins, save_Output=save_output)
 
 
     print("------------Data SETTINGS-----------")
     print(f"  Matter:             {matter}")
-    print(f"  Selected pT range:  {pt_min}<pt<{pt_max}")
-    print(f"  Centrality Cut:     centrality > {cmin}")
+    print(f"  Selected Centrality range:  {cmin}-{cmax}%")
     print(f"  Number of bins:     {nbins}")
     print(f"  Event Plane Cut:    inplane: {inplane} ")
     print("------------------------------------")
 
     # do it for every model (Pol1, Pol2, Expo)+CB(with and without fixed sigma)
-    ExpoNhyp, ExpoYerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="ExpoCB", save_Output=save_output)
-    # Pol1Nhyp, Pol1Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol1CB", save_Output=False)
-    # Pol2Nhyp, Pol2Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=True, model="Pol2CB", save_Output=False)  
-    # ExpoNhypS, ExpoYerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="ExpoCB", save_Output=False)
-    # Pol1NhypS, Pol1YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol1CB", save_Output=False)
-    # Pol2NhypS, Pol2YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, pt_min, pt_max, cmin, matter, nbins, fitsigma=False, model="Pol2CB", save_Output=False)        
+    ExpoNhyp, ExpoYerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, cmin, cmax, matter, nbins, fitsigma=True, model="ExpoCB", save_Output=save_output)
+    # Pol1Nhyp, Pol1Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, cmin, cmax, matter, nbins, fitsigma=True, model="Pol1CB", save_Output=False)
+    # Pol2Nhyp, Pol2Yerr = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, cmin, cmax, matter, nbins, fitsigma=True, model="Pol2CB", save_Output=False)  
+    # ExpoNhypS, ExpoYerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, cmin, cmax, matter, nbins, fitsigma=False, model="ExpoCB", save_Output=False)
+    # Pol1NhypS, Pol1YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, cmin, cmax, matter, nbins, fitsigma=False, model="Pol1CB", save_Output=False)
+    # Pol2NhypS, Pol2YerrS = GetNHypertritonCandidates(rdfData_new, results, BDTEfficiency, cmin, cmax, matter, nbins, fitsigma=False, model="Pol2CB", save_Output=False)        
 
 
     Nhyp = [ExpoNhyp]#, ExpoNhypS, Pol1Nhyp, Pol1NhypS, Pol2Nhyp, Pol2NhypS]
@@ -566,7 +566,7 @@ def ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEfficiency, nbins, ma
     return Nhyp, Yerr
 
 
-def GetResults(rdfData, rdfMC, matter, pt_min, pt_max, BDTEfficiencies, nbins, cmin, inplane, save_output):
+def GetResults(rdfData, rdfMC, matter,cmin, cmax, BDTEfficiencies, nbins, inplane, save_output):
 
     matter2 = "AM"
     if matter == "true":
@@ -577,36 +577,36 @@ def GetResults(rdfData, rdfMC, matter, pt_min, pt_max, BDTEfficiencies, nbins, c
     Results["bin0"]=[]
     Results["bin1"]=[]
     Results["bin2"]=[]
-    Results["bin3"]=[]
-    Results["bin4"]=[]
+    # Results["bin3"]=[]
+    # Results["bin4"]=[]
     # Results["bin5"]=[]
     # Results["bin6"]=[]
 
     Results["bin0yerr"] = []
     Results["bin1yerr"] = []
     Results["bin2yerr"] = []
-    Results["bin3yerr"] = []
-    Results["bin4yerr"] = []
+    # Results["bin3yerr"] = []
+    # Results["bin4yerr"] = []
     # Results["bin5yerr"] = []
     # Results["bin6yerr"] = []
 
 
     for BDTEff in BDTEfficiencies:
         logging.info(f"BDTEfficiency: {BDTEff}")
-        Nhyp, Yerr = ProcessForOneBDTEff(rdfData, rdfMC, pt_min, pt_max, BDTEff, nbins, matter, cmin, inplane, save_output)
+        Nhyp, Yerr = ProcessForOneBDTEff(rdfData, rdfMC, cmin, cmax, BDTEff, nbins, matter, inplane, save_output)
         Results["bin0"] += [x[0] for x in Nhyp]
         Results["bin1"] += [x[1] for x in Nhyp]
         Results["bin2"] += [x[2] for x in Nhyp]
-        Results["bin3"] += [x[3] for x in Nhyp]
-        Results["bin4"] += [x[4] for x in Nhyp]
+        # Results["bin3"] += [x[3] for x in Nhyp]
+        # Results["bin4"] += [x[4] for x in Nhyp]
         # Results["bin5"] += [x[5] for x in Nhyp]
         # Results["bin6"] += [x[6] for x in Nhyp]
 
         Results["bin0yerr"] += [x[0] for x in Yerr]
         Results["bin1yerr"] += [x[1] for x in Yerr]
         Results["bin2yerr"] += [x[2] for x in Yerr]
-        Results["bin3yerr"] += [x[3] for x in Yerr]
-        Results["bin4yerr"] += [x[4] for x in Yerr]
+        # Results["bin3yerr"] += [x[3] for x in Yerr]
+        # Results["bin4yerr"] += [x[4] for x in Yerr]
         # Results["bin5yerr"] += [x[5] for x in Yerr]
         # Results["bin6yerr"] += [x[6] for x in Yerr]
 
@@ -638,13 +638,14 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
     slope_errors = []
 
     # fit difference of Matter and Antimatter
-    h = ROOT.TH1D("hist", "Nhyp matter-antimatter", nbins, -1, 1)
+    h = ROOT.TH1D("hist", "Nhyp matter-antimatter", nbins, 2, 6)
 
     for i in range(sample_size):
         diff = [x[i]-y[i] for x,y in zip(Nhyp_m, Nhyp_am)]
         diff_err = [np.sqrt(x[i]**2+y[i]**2) for x,y in zip(Yerr_m, Yerr_am)]
 
-        bins = np.linspace(-1,1,nbins+1)
+        # bins = np.linspace(2, 6, nbins+1)
+        bins = np.array([2,3,4,6])
         centered_bins = (bins[:-1] + bins[1:]) / 2
 
         # c = ROOT.TCanvas()
@@ -701,9 +702,9 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
         slope_errors.append(errors[1])
 
     del h
-    with open(Outputdir+f"Slopes{pt_min}pt{pt_max}centr{cmin}.json", 'w') as f:
+    with open(Outputdir+f"SlopesCentr{cmin}-{cmax}.json", 'w') as f:
         json.dump(slopes, f, indent=2) 
-    with open(Outputdir+f"SlopesErr{pt_min}pt{pt_max}centr{cmin}.json", 'w') as f:
+    with open(Outputdir+f"SlopesErrCentr{cmin}-{cmax}.json", 'w') as f:
         json.dump(slope_errors, f, indent=2) 
 
     return slopes, slope_errors
@@ -713,25 +714,22 @@ def StoreSlope(ResultsMatter, ResultsAntimatter, nbins, OutputSlope, sample_size
 
 
 if __name__ == "__main__":
-    logging.basicConfig(filename='SystematicErrors-20092023.log', level=logging.DEBUG)
+    logging.basicConfig(filename='v2.log', level=logging.DEBUG)
     logging.info(f"{datetime.datetime.now()}")
  
     #---------------------SETTINGS------------------
-    pt_min = 3.0
-    pt_max = 6.4
-
+    cmin = 0
+    cmax = 10
+    # and 30-50%
 
     # BDT Cut
     BestBDTEff = 0.81
 
-    #number of cos(theta) bins
-    nbins = 5
+    #number of pt bins
+    nbins = 3
 
     # number of bins in histogram per cos(theta) bin
     binnumber = 50
-
-    #centrality cut
-    cmin = 10 
 
     #inplane?
     inplane = True
@@ -741,27 +739,26 @@ if __name__ == "__main__":
     save_output = True
 
     logging.info("------CONFIG-----------")
-    logging.info(f"pt_min: {pt_min}")
-    logging.info(f"pt_max: {pt_max}")
+    logging.info(f"cmin: {cmin}")
+    logging.info(f"cmax: {cmax}")
     logging.info(f"BDTCut: {BestBDTEff}")
     logging.info(f"Number of bins: {nbins}")
-    logging.info(f"Centrality > {cmin}")
     logging.info(f"Inplane = {inplane}")
     logging.info("-----------------------")
 
 
     #-----------------PATHS FOR OUTPUT-------------------
     # Outfput file paths
-    OutputSlope = "../Output/SlopeOutput"
+    OutputSlope = "../Output/V2/SlopeOutput"
 
     #Outputdir path
-    Outputdir = "../Output/Test/"
+    Outputdir = "../Output/V2/In/"
 
     #Input dir path
-    Inputdir = "../Output/"
+    Inputdir = "../Output/V2/"
 
-    InputDataFileName = "3.0_pt_6.4_SystematicsEPangleData_3"
-    InputMCFileName = "3.0_pt_6.4_SystematicsEPangleMC_3"
+    InputDataFileName = "2.0_pt_6.0_SystematicsEPangleData"
+    InputMCFileName = "2.0_pt_6.0_SystematicsEPangleMC"
 
 
     #---------------------------------------------------------
@@ -777,30 +774,29 @@ if __name__ == "__main__":
     print("BDTEfficiencies:", BDTEfficiencies)
     
     # Load dataframes
-    rdfData = ROOT.RDataFrame("df", Inputdir+InputDataFileName).Filter(f"{pt_min} < pt and pt < {pt_max} and 1 < ct and ct < 35 and {EPanglecut}")
+    rdfData = ROOT.RDataFrame("df", Inputdir+InputDataFileName).Filter(f"{cmin} < centrality and centrality < {cmax} and 1 < ct and ct < 35 and {EPanglecut}")
     
-    rdfMC = ROOT.RDataFrame("df", Inputdir+InputMCFileName).Filter(f"{pt_min} < pt and pt < {pt_max} and 1 < ct and ct < 35 ")#and {EPanglecut}")
+    rdfMC = ROOT.RDataFrame("df", Inputdir+InputMCFileName).Filter(f"{cmin} < centrality and centrality < {cmax} and 1 < ct and ct < 35 ")#and {EPanglecut}")
 
     # Extract Number of Hypertritons for Matter and Antimatter
     ResultsMatter = GetResults(
         rdfData, 
         rdfMC, 
         matter="true", 
-        pt_min=pt_min, 
-        pt_max=pt_max, 
+        cmin=cmin, 
+        cmax=cmax, 
         BDTEfficiencies=BDTEfficiencies, 
         nbins=nbins, 
-        cmin=cmin, 
         inplane=inplane, 
         save_output=save_output)
-    ResultsAntimatter = GetResults(rdfData, rdfMC, matter="false", pt_min=pt_min, pt_max=pt_max, BDTEfficiencies=BDTEfficiencies, nbins=nbins, cmin=cmin, inplane=inplane, save_output=save_output)
+    ResultsAntimatter = GetResults(rdfData, rdfMC, matter="false",  cmin=cmin, cmax=cmax,  BDTEfficiencies=BDTEfficiencies, nbins=nbins, inplane=inplane, save_output=save_output)
 
     # with open(f"../Output/EPCutOutput/ResultsM.json", 'r') as f:
     #     ResultsMatter = json.load(f)
 
     # with open(f"../Output/EPCutOutput/ResultsAM.json", 'r') as f:
     #     ResultsAntimatter = json.load(f)
-
+    exit()
     # Create Histogram
     h = ROOT.TH1D("hist", "Nhyp matter-antimatter", 100, -100, 100)
     h.SetCanExtend(ROOT.TH1.kAllAxes)
