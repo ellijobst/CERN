@@ -21,59 +21,54 @@ struct GetBDTEfficiency {
 };
 """
 
-ROOT.gInterpreter.ProcessLine(cppcode)
-
-for pt2 in range(4,18,1):
-    
-    # Loop through pt in steps of 0.5GeV
-    pt=pt2/2
-    print(pt)
-    
-    
-    # Define input file names 
-    # NOTE: these Files had the model trained and then applied to it for 0.5GeV pt ranges
-#     filenamebkg = f"DataframesForBDTEfficiency/DataframeBkg_{pt}_pt_{pt+0.5}.root"
-    filename = f"DataframeMCEPangle_3.0_pt_6.4_3.root"
-    filenamedata = f"DataframeDataEPangle_3.0_pt_6.4_3.root"
+def AddBDTEfficiency():
+    ROOT.gInterpreter.ProcessLine(cppcode)
     
     # Create Dataframes
-    rdf = ROOT.RDataFrame("df", filename)
-#     rdfbkg = ROOT.RDataFrame("df", filenamebkg)
-    rdfdata = ROOT.RDataFrame("df", filenamedata)
-    
-    # Set Number of bins, and get Number of generated Hypertriton Candidates for this pt range
-#     Ngenpt = ngen[pt2-4]
+    rdfMC = ROOT.RDataFrame("df", InfilenameMC)
+    rdfData = ROOT.RDataFrame("df", InfilenameData)
+    rdfBkg = ROOT.RDataFrame("df", InfilenameBkg)
+
+
+    # Set Number of bins for BDTEfficiency Histogram
     bins = 5000
-    
+
     # define Histogram that converts BDTScore into BDTEfficiency with MCs
-    hist = rdf.Histo1D(("BDTScoreHist", "BDT Score", bins, -15, 15),"model_output")
+    hist = rdfMC.Histo1D(("BDTScoreHist", "BDT Score", bins, -15, 15),"model_output")
     hist_cum = hist.GetCumulative()
     maximum = hist_cum.GetMaximum()
     hist_cum.Scale(1/(maximum))
     hist_cum.Scale(-1)
-    
+
     for bin in range(1, bins+1):
         hist_cum.AddBinContent(bin)
-        
-#     hist_cum.Scale(maximum/Ngenpt)
-#     h = hist_cum
 
-    # Define BDTEfficiencies for the Dataframes
-    # rdf = rdf.Define("BDTEfficiency", ROOT.GetBDTEfficiency(hist_cum), ["model_output"])
-    rdfdata = rdfdata.Define("BDTEfficiency", ROOT.GetBDTEfficiency(hist_cum), ["model_output"])
-    # rdfbkg = rdfbkg.Define("BDTEfficiency", ROOT.GetBDTEfficiency(hist_cum), ["model_output"])
-    
+
+    # Add BDTEfficiencies to the Dataframes
+    rdfMC = rdfMC.Define("BDTEfficiency", ROOT.GetBDTEfficiency(hist_cum), ["model_output"])
+    rdfData = rdfData.Define("BDTEfficiency", ROOT.GetBDTEfficiency(hist_cum), ["model_output"])
+    rdfBkg = rdfBkg.Define("BDTEfficiency", ROOT.GetBDTEfficiency(hist_cum), ["model_output"])
+
     # Cut on BDTEfficiency and save modified DataFrames to .root file
     treeName = "df"
 
-    # fileName = f"DataframeMCEPangle_3.0_pt_6.4_BDTEfficiency_3.root"
-#     fileNamebkg = f"DataframesForBDTEfficiency/DataframeBkgNew_{pt}_pt_{pt+0.5}_BDTEfficiency.root"
-    fileNamedata = f"DataframeDataEPangle_3.0_pt_6.4_BDTEfficiency_3.root"
-    
-    # rdf = rdf.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, fileName)
-    rdfdata = rdfdata.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, fileNamedata)
-#     rdfbkg = rdfbkg.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, fileNamebkg, {"pt", "Matter",  "centrality", "ct", "m", "model_output", "BDTEfficiency"})
+    # save dataframes to root file and cut on BDTEfficiency
+    rdfMC = rdfMC.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, OutfileNameMC)
+    rdfData = rdfData.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, OutfileNameData)
+    rdfBkg = rdfBkg.Filter(f"BDTEfficiency < 0.99").Snapshot(treeName, OutfileNameBkg)
 
     print("Root df saved.")
-    break
-    
+
+if __name__ == "__main__":
+    # Define input file names 
+    InfilenameMC = f"DataframeMCEPangle_3.0_pt_6.4_3.root"
+    InfilenameData = f"DataframeDataEPangle_3.0_pt_6.4_3.root"
+    InfilenameBkg = "Backgroundfile.root"
+
+    # Define output file names
+    OutfileNameMC = f"DataframeMCEPangle_3.0_pt_6.4_BDTEfficiency_3.root"
+    OutfileNameData = f"DataframeDataEPangle_3.0_pt_6.4_BDTEfficiency_3.root"
+    OutfileNameBkg = f"DataframeBkgEPangle_3.0_pt_6.4_BDTEfficiency_3.root"
+
+    AddBDTEfficiency()
+
